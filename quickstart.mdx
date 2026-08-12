@@ -1,179 +1,186 @@
 ---
-title: "Quickstart: Build and Ship Accessible Tokens with Substrate"
+title: "Quickstart: Integrate Substrate into Your Project"
 sidebarTitle: "Quickstart"
-description: "Set up your first Substrate brand config, generate accessible tokens, and integrate CSS variables into your project in four steps."
+description: "Vendor the Substrate engine, run substrate init, wire the three import aliases, and initialize the runtime solver — every step verified against the real CLI."
 ---
 
-This guide walks you through creating your first brand config, running the Substrate compiler, and using the generated tokens in a web project. By the end, you'll have a complete, accessible token set — including light, dark, and high-contrast modes — derived entirely from a handful of brand intent values.
+This guide walks you through the **vendored-checkout** integration path: getting the Substrate engine into your repo, running `substrate init`, wiring the three public import aliases, and initializing the runtime so your app computes APCA-solved token values. By the end, your app renders through the Substrate cascade and you've verified it.
 
-<Tip>
-  Substrate automatically generates `light`, `dark`, `dimmed`, `high-contrast`, and `high-contrast-dark` token sets from your single config file. You never need to author parallel color ramps or contrast overrides by hand.
-</Tip>
+<Warning>
+  Substrate's CLI package (`@unknown-creatives/substrate`) is **not yet published to npm**, and a bare `npx substrate` installs an **unrelated third-party package** of the same name. Never use `npx substrate`. Run the CLI from a Substrate checkout, as shown below.
+</Warning>
 
-<Steps>
-  <Step title="Create your brand config file">
-    Create a file named `substrate.config.json` at the root of your project. This file is the only thing you author by hand — every downstream token is calculated from these values.
+## 1. Obtain Substrate
 
-    ```json substrate.config.json
-    {
-      "brand": "my-brand",
-      "color": {
-        "primary": {
-          "hue": 160,
-          "chroma": 0.18
-        },
-        "neutral": {
-          "hue": 210,
-          "chroma": 0.02
-        },
-        "accent": {
-          "hue": 280,
-          "chroma": 0.22
-        }
-      },
-      "space-unit": "4px",
-      "type-size-unit": "16px",
-      "scale-ratio": 1.25,
-      "motion-unit": "100ms"
-    }
-    ```
+Clone the Substrate checkout you received from Unknown Creatives **outside** your project, install its dependencies (the CLI needs them; your project never does), then vendor the engine into your repo:
 
-    All color values are expressed as OKLCH hue (0–360) and chroma (0–0.4). Substrate handles lightness for every mode internally — you don't set it here.
+```bash
+# Clone Substrate outside your project and install its deps
+git clone <substrate-repo-url> ~/substrate && (cd ~/substrate && npm ci)
+SUBSTRATE_REPO=~/substrate
 
-    | Field | Description | Example |
-    |---|---|---|
-    | `color.*.hue` | Hue angle in OKLCH (0–360) | `160` |
-    | `color.*.chroma` | Chroma in OKLCH (0–0.4) | `0.18` |
-    | `space-unit` | Base unit for the spacing scale | `4px` |
-    | `type-size-unit` | Base unit for the type scale | `16px` |
-    | `scale-ratio` | Multiplier between scale steps | `1.25` |
-    | `motion-unit` | Base duration for motion tokens | `100ms` |
-  </Step>
+# Vendor the engine: sealed engine dirs go to substrate/engine/,
+# pipeline outputs seed substrate/generated/ (a sibling, NOT inside engine/)
+cd ~/my-app
+mkdir -p substrate/engine
+for d in src skills agents references knowledge scripts; do
+  cp -R "$SUBSTRATE_REPO/$d" "substrate/engine/$d"
+done
+cp -R "$SUBSTRATE_REPO/generated" substrate/generated
+```
 
-  <Step title="Run the Substrate compiler">
-    Run the `substrate build` command from your project root. Substrate reads your config and outputs token files for every platform and mode.
+None of these directories need `node_modules` or any install step inside your repo. Vendor the whole `src/` directory — if `src/kernel/`, `src/platforms/`, or `src/types/` is missing, `init` reports each as a blocker and exits non-zero.
 
-    ```bash
-    substrate build
-    ```
+Before running `init`, confirm the layout is detectable (`--dry-run` writes nothing):
 
-    By default, Substrate writes output to a `./substrate-tokens/` directory:
+```bash
+node "$SUBSTRATE_REPO/packages/cli/bin/substrate-init.js" init --dry-run --platform claude-code
+```
 
-    ```
-    substrate-tokens/
-    ├── web/
-    │   ├── substrate-tokens.css        # All modes as CSS layers
-    │   ├── substrate-tokens.light.css  # Light mode only
-    │   ├── substrate-tokens.dark.css   # Dark mode only
-    │   └── substrate-tokens.hc.css     # High-contrast modes
-    ├── ios/
-    │   └── SubstrateTokens.swift
-    └── android/
-        └── SubstrateTokens.kt
-    ```
+The first line must read `Found Substrate (client): substrate/engine`.
 
-    To target a specific platform, pass the `--platform` flag:
+## 2. Run `substrate init`
 
-    ```bash
-    substrate build --platform web
-    substrate build --platform ios
-    substrate build --platform android
-    ```
+The CLI must run from the checkout (its dependencies resolve from the checkout's `node_modules`). A shell function makes the rest of this guide's `substrate <cmd>` spellings literal:
 
-    To point at a config file in a non-default location, use `--config`:
+```bash
+substrate() { node "$SUBSTRATE_REPO/packages/cli/bin/substrate-init.js" "$@"; }
 
-    ```bash
-    substrate build --config ./design/brand.config.json
-    ```
-  </Step>
+substrate init
+```
 
-  <Step title="Import the CSS variables">
-    Import the generated CSS file into your project's entry stylesheet. Substrate emits all modes as CSS `@layer` blocks scoped to data attributes, so mode-switching requires no JavaScript beyond toggling a single attribute.
+`init` prints the Substrate it found, lets you pick which AI tools to configure, links the Substrate skills and the Bloom agent into each selected tool, scaffolds the client overlays, writes `.substrate/state.yaml`, and sets up the import aliases. Non-interactive alternatives:
 
-    ```css styles/main.css
-    @import '../substrate-tokens/web/substrate-tokens.css';
-    ```
-
-    Substrate tokens follow a predictable naming convention. Use them anywhere you'd use a CSS custom property:
-
-    ```css
-    .button-primary {
-      background-color: var(--color-primary-surface);
-      color: var(--color-primary-on-surface);
-      padding: var(--space-3) var(--space-5);
-      font-size: var(--type-size-2);
-      border-radius: var(--space-1);
-      transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
-    }
-
-    .button-primary:hover {
-      background-color: var(--color-primary-surface-hover);
-    }
-    ```
-
-    To switch modes at runtime, set the `data-substrate-mode` attribute on your root element:
-
-    ```html
-    <!-- Light mode (default) -->
-    <html data-substrate-mode="light">
-
-    <!-- Dark mode -->
-    <html data-substrate-mode="dark">
-
-    <!-- High-contrast mode -->
-    <html data-substrate-mode="high-contrast">
-    ```
-
-    You can also let Substrate respect the user's system preference automatically by omitting the attribute entirely — Substrate emits `@media (prefers-color-scheme: dark)` blocks alongside the explicit mode layers.
-  </Step>
-
-  <Step title="Verify accessibility">
-    Open the generated `substrate-tokens.css` file and inspect the comments. Every foreground token includes APCA contrast metadata so you can audit accessibility at a glance without running a separate checker.
-
-    ```css
-    /* substrate-tokens/web/substrate-tokens.css — generated by Substrate */
-
-    [data-substrate-mode="light"] {
-      /* ─── Primary ──────────────────────────────────────────── */
-
-      /* surface: oklch(96% 0.018 160) */
-      --color-primary-surface: #edf8f3;
-
-      /* on-surface: oklch(18% 0.09 160)
-         APCA Lc: 87.4 against --color-primary-surface
-         Target:  Lc 75 (body text) ✓ */
-      --color-primary-on-surface: #0f2e22;
-
-      /* ─── Spacing ───────────────────────────────────────────── */
-      /* base-unit: 4px  |  ratio: 1.25 */
-      --space-1: 4px;
-      --space-2: 5px;
-      --space-3: 6.25px;
-      --space-4: 7.813px;
-      --space-5: 9.766px;
-
-      /* ─── Type scale ────────────────────────────────────────── */
-      /* base-unit: 16px  |  ratio: 1.25 */
-      --type-size-0: 10.24px;   /* 2 steps below base */
-      --type-size-1: 12.8px;    /* 1 step below base  */
-      --type-size-2: 16px;      /* base                */
-      --type-size-3: 20px;      /* 1 step above base  */
-      --type-size-4: 25px;      /* 2 steps above base */
-      --type-size-5: 31.25px;   /* 3 steps above base */
-    }
-    ```
-
-    If a token fails your configured contrast target for any reason (for example, if you override a value manually in a downstream theme), Substrate will flag it during the build with a warning:
-
-    ```
-    ⚠  APCA contrast warning: --color-neutral-on-surface-muted
-       Lc 38.2 against --color-neutral-surface
-       Target: Lc 45 (non-text UI) — below target
-       Mode: light | Brand: my-brand
-    ```
-  </Step>
-</Steps>
+```bash
+substrate init --all               # configure every supported platform
+substrate init --platform cursor   # configure exactly one platform
+substrate init --dry-run           # preview every action, write nothing
+```
 
 <Note>
-  The fields shown in this quickstart cover the essentials. See the [Brand Config overview](/brand-config/overview) for the full set of available options, including semantic color roles, CVD accommodation settings, and per-mode contrast targets.
+  The `--platform` flag selects an **AI coding tool** (`claude-code`, `cursor`, `windsurf`, …) — it is not an output-target selector. Re-running `init` is idempotent, and `substrate init --refresh` replays your recorded selections. The full CLI surface is `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact`.
 </Note>
+
+## 3. Wire the three public aliases
+
+Client code imports Substrate through exactly three public aliases — this is the whole import contract, and an engine swap never changes these import statements:
+
+| Alias | Resolves to (client repo) | Use it for |
+|---|---|---|
+| `@substrate/engine` | `substrate/engine/src/index.ts` | the runtime engine API (APCA solver, token sync) |
+| `@substrate/components/*` | `substrate/components/*` | client-owned components (`Surface`, `Button`, catalog entries) |
+| `@substrate/generated/*` | `substrate/generated/*` | pipeline output — the generated CSS, registries, intermediates |
+
+`init` **auto-writes** the aliases into `tsconfig.json` (idempotent; it manages only the `@substrate/*` zone and never touches your other options):
+
+```jsonc
+{
+  "compilerOptions": {
+    "paths": {
+      "@substrate/engine": ["./substrate/engine/src/index.ts"],
+      "@substrate/components/*": ["./substrate/components/*"],
+      "@substrate/generated/*": ["./substrate/generated/*"]
+    }
+  }
+}
+```
+
+Bundler and test configs are code, so `init` doesn't edit them — it writes an importable manifest, `.substrate/aliases.js`, that you spread into your bundler's alias config:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { substrateAliases } from './.substrate/aliases.js';
+
+export default defineConfig({
+  resolve: { alias: substrateAliases },
+});
+```
+
+To reprint every block without touching disk, run `substrate init --report-aliases`.
+
+## 4. First import
+
+Two things run at app startup: load the **generated CSS barrel** once at your app entry (it establishes the full cascade), then initialize the **engine** — the runtime APCA solver, the only JS Substrate requires:
+
+```ts
+// main.tsx (or your framework's entry file)
+import '@substrate/generated/global/css/index.gen.css';
+import {
+  updateAllVars, syncBrandToCssVars, syncPrefsToCssVars,
+  defaultPreferences, BRAND_REGISTRY,
+} from '@substrate/engine';
+
+const brand = BRAND_REGISTRY[0];
+const prefs = defaultPreferences();
+syncBrandToCssVars(brand);   // typography, shape, motion, spacing vars
+syncPrefsToCssVars(prefs);   // scheme, contrast, density vars
+updateAllVars(brand, prefs); // runs the APCA solver, writes per-intent --ucs-* to :root
+```
+
+Any element then opts into the cascade with `data-ucs` plus a `data-mode` role:
+
+```html
+<div data-ucs data-mode="brand">Solved brand surface</div>
+<div data-ucs data-mode="danger">Solved danger surface</div>
+```
+
+To move along the scheme axis (light ↔ dark), update the preference vector and re-sync — the CSS reacts automatically:
+
+```ts
+prefs.scheme = prefs.scheme === 0 ? 1 : 0;
+syncPrefsToCssVars(prefs);
+updateAllVars(brand, prefs);
+```
+
+There is no theme attribute to toggle: `scheme` is a continuous value (0 → 1), the runtime sets `data-brand` on the root itself, and named modes like `dark` or `highContrast` are presets over the same continuum — see [Core Concepts](/core-concepts#modes).
+
+## 5. Verify
+
+These checks need nothing beyond Node and what `init` wrote:
+
+```bash
+# 1. Detection: prints `Found Substrate (client): substrate/engine`, writes nothing.
+substrate init --dry-run --platform claude-code
+
+# 2. Alias wiring: every @substrate/* target init wrote resolves on disk.
+node --input-type=module -e "
+import fs from 'node:fs';
+const { substrateAliases } = await import('./.substrate/aliases.js');
+for (const [alias, target] of Object.entries(substrateAliases)) {
+  if (!fs.existsSync(target)) { console.error('MISSING', alias, '->', target); process.exit(1); }
+  console.log('OK', alias, '->', target);
+}
+"
+
+# 3. The generated CSS barrel is present.
+node -e "require('node:fs').accessSync('substrate/generated/global/css/index.gen.css'); console.log('OK css barrel')"
+```
+
+To prove the engine itself is sound, run its always-on suite **in the Substrate checkout** (the vendored engine deliberately ships no test runner):
+
+```bash
+cd "$SUBSTRATE_REPO" && npm run test:unit
+```
+
+## 6. Discover catalog content
+
+Substrate ships a catalog of starting-point content — component configs, brand configs — that you scaffold into your client-owned content root as you need it:
+
+```bash
+substrate add --list                                        # see what's available
+substrate add components/badge --generate-command "npm run generate"
+```
+
+`add` scaffolds the entry's files with provenance headers, records the fetch in `.substrate/manifest.yaml`, and runs your generate command so the pipeline picks the new config up immediately.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="lightbulb" href="/core-concepts">
+    The runtime-solver mental model: intents, the preference vector, APCA solving per surface, and the cascade.
+  </Card>
+  <Card title="Brand Config Overview" icon="sliders" href="/brand-config/overview">
+    Author your own brand: the YAML schema, the open intents map, and the flexibility bounds.
+  </Card>
+</CardGroup>
