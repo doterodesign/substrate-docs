@@ -1,0 +1,66 @@
+---
+title: "Configuring Type Scale and Font Settings in Substrate"
+sidebarTitle: "Typography"
+description: "Substrate derives your complete type scale from three parameters: type-size-unit, scale-ratio, and an optional font stack. No per-step sizes to hand-author."
+---
+
+Typography in Substrate is fully computed — you never author individual font sizes by hand. Instead, you declare three things: a base size (`type-size-unit`), a ratio that governs how steps scale up and down (`scale-ratio`), and an optional font stack. From those inputs, Substrate generates a complete, harmonically consistent type scale with semantic step names ready to use in components and stylesheets.
+
+## Typography config block
+
+```json
+"type-size-unit": "16px",
+"scale-ratio": 1.25,
+"font": {
+  "sans": "Inter, system-ui, sans-serif",
+  "mono": "JetBrains Mono, Menlo, monospace"
+}
+```
+
+- **`type-size-unit`** — The mid-point of your scale. This value becomes `--type-size-md`. All other steps are derived from it. Defaults to `"16px"`.
+- **`scale-ratio`** — The multiplier applied at each step. `1.25` is the Major Third — a popular choice for UI type scales because the steps are meaningfully distinct without being too dramatic. Defaults to `1.25`.
+- **`font`** — An optional map of font-family stacks. Define `sans` and/or `mono`; Substrate generates corresponding CSS custom properties and wires them into component recipes automatically.
+
+## Generated scale steps
+
+Substrate produces seven named steps. The semantic names are fixed — they map to predictable roles in UI hierarchy regardless of the underlying pixel values:
+
+| Token | Formula | Value at `16px` / `1.25` |
+|---|---|---|
+| `--type-size-xs` | base ÷ ratio² | `10.24px` |
+| `--type-size-sm` | base ÷ ratio | `12.8px` |
+| `--type-size-md` | base (the unit itself) | `16px` |
+| `--type-size-lg` | base × ratio | `20px` |
+| `--type-size-xl` | base × ratio² | `25px` |
+| `--type-size-2xl` | base × ratio³ | `31.25px` |
+| `--type-size-3xl` | base × ratio⁴ | `39.06px` |
+
+## Generated CSS output
+
+```css
+:root {
+  --type-size-xs: 10.24px;
+  --type-size-sm: 12.8px;
+  --type-size-md: 16px;
+  --type-size-lg: 20px;
+  --type-size-xl: 25px;
+  --type-size-2xl: 31.25px;
+  --type-size-3xl: 39.06px;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', Menlo, monospace;
+}
+```
+
+## Fluid type (responsive scaling)
+
+When you configure a viewport range in your Substrate config, the system generates `clamp()` values for each type step instead of fixed pixel sizes. This means your type scale expands smoothly from the minimum viewport to the maximum — no breakpoint-based overrides needed:
+
+```css
+--type-size-lg: clamp(18px, 1.25vw + 14px, 20px);
+```
+
+Fluid clamp output requires a `viewport` config block alongside your typography settings. See the responsive configuration guide for details.
+
+<Tip>
+  Try changing `scale-ratio` from `1.25` to `1.333` (Perfect Fourth) — every step in the scale recalculates instantly without any manual edits. Experimenting with ratios is a safe, high-leverage way to adjust the overall expressiveness of your type hierarchy.
+</Tip>

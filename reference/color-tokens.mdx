@@ -1,0 +1,74 @@
+---
+title: "Color Token Reference: All Generated CSS Variables"
+sidebarTitle: "Color Tokens"
+description: "Complete reference for Substrate's generated color tokens — surface, on-surface, primary, semantic, and interactive state variables with their APCA contrast targets."
+---
+
+Substrate generates color tokens in multiple categories, all derived from the hue and chroma values in your brand config. Every foreground token is APCA-solved against its intended surface at build time — no manual contrast checking required. The values below are the CSS custom properties Substrate emits; equivalent Swift constants and Kotlin values are generated using the same naming convention.
+
+## Surface Tokens
+
+Surface tokens define the layered background stack of your UI, from the base page background up through elevated overlays.
+
+| Token | Description |
+|---|---|
+| `--color-surface` | Primary page/screen background |
+| `--color-surface-secondary` | Slightly elevated surface (cards, sidebars) |
+| `--color-surface-tertiary` | Further elevated surface (modals, popovers) |
+| `--color-surface-inverse` | Inverse surface for tooltip/badge backgrounds |
+
+## On-Surface Tokens
+
+On-surface tokens are foreground values — text, icons, and decorative elements — placed on top of the surface stack. Each is APCA-solved against `--color-surface` unless noted.
+
+| Token | Description |
+|---|---|
+| `--color-on-surface` | Body text on primary surface |
+| `--color-on-surface-subtle` | Secondary/muted text |
+| `--color-on-surface-disabled` | Disabled text |
+| `--color-on-surface-inverse` | Text on inverse surface |
+
+## Primary Color Tokens
+
+Primary tokens expose your brand color and all interactive states derived from it.
+
+| Token | Description |
+|---|---|
+| `--color-primary` | Brand primary color |
+| `--color-primary-subtle` | Light tint of primary (backgrounds, tags) |
+| `--color-on-primary` | Text/icon on primary-colored backgrounds |
+| `--color-primary-hover` | Primary at hover state |
+| `--color-primary-active` | Primary at active/pressed state |
+
+## Semantic Tokens
+
+Semantic tokens communicate status and feedback. Each semantic color includes a full triptych: the signal color itself, its on-color, and a subtle background tint for inline callouts and badge backgrounds.
+
+| Token | Description |
+|---|---|
+| `--color-error` | Error state |
+| `--color-on-error` | Text/icon on error backgrounds |
+| `--color-error-subtle` | Error background tint |
+| `--color-warning` | Warning state |
+| `--color-on-warning` | Text/icon on warning backgrounds |
+| `--color-warning-subtle` | Warning background tint |
+| `--color-success` | Success state |
+| `--color-on-success` | Text/icon on success backgrounds |
+| `--color-success-subtle` | Success background tint |
+| `--color-info` | Informational state |
+| `--color-on-info` | Text/icon on info backgrounds |
+| `--color-info-subtle` | Info background tint |
+
+## Border Tokens
+
+Border tokens cover dividers, outlines, and focus rings.
+
+| Token | Description |
+|---|---|
+| `--color-border` | Default border/divider |
+| `--color-border-strong` | Emphasized border |
+| `--color-border-focus` | Focus ring color |
+
+<Note>
+All tokens listed here are generated for every mode — `light`, `dark`, `dimmed`, `high-contrast`, and `high-contrast-dark` — and for any CVD presets you enable (`protanopia`, `deuteranopia`, `tritanopia`). Each mode is scoped to a `data-theme` attribute so you can switch modes at the document or component level without re-shipping your CSS.
+</Note>

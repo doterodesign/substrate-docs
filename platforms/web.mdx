@@ -1,0 +1,101 @@
+---
+title: "Using Substrate Tokens in Web Projects"
+sidebarTitle: "Web"
+description: "Substrate outputs CSS custom properties for every token. Import the generated stylesheet and use design tokens with var() throughout your CSS and components."
+---
+
+Substrate compiles your design tokens into a single CSS file containing every custom property, scoped across all five display modes. Once you import it, every token is available anywhere in your stylesheet or component code via the standard `var()` function — no build plugins, no JavaScript runtime, no dependencies.
+
+## Output files
+
+After running `substrate build`, Substrate generates the following files inside your configured output directory:
+
+```
+dist/tokens/acme/
+├── acme.css      # CSS custom properties, all modes
+├── acme.json     # Raw token JSON (Figma, Style Dictionary, etc.)
+```
+
+`acme.css` contains every token as a CSS custom property, with mode-specific values applied through `data-theme` attribute selectors. `acme.json` exposes the same token tree in a portable format for use with external tooling.
+
+## Importing tokens
+
+Reference `acme.css` in your global stylesheet so the custom properties are available across your entire application:
+
+```css
+/* In your global stylesheet */
+@import './dist/tokens/acme/acme.css';
+```
+
+If you are using a JavaScript bundler such as Vite, webpack, or Parcel, you can import the file directly in your entry point instead:
+
+```js
+import './dist/tokens/acme/acme.css';
+```
+
+## Using tokens
+
+Reference any token with the standard CSS `var()` function. Token names follow a consistent namespace convention described in the [Token categories](#token-categories) section below.
+
+```css
+.button-primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--type-size-md);
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+
+.button-primary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: var(--space-1);
+}
+```
+
+## Mode switching
+
+Substrate uses the `data-theme` attribute on the root `<html>` element to activate a display mode. When no attribute is present, Substrate's default mode responds to the operating system's light/dark preference via a `prefers-color-scheme` media query.
+
+```html
+<!-- OS default (auto light/dark via media query) -->
+<html>
+
+<!-- Explicit light mode -->
+<html data-theme="light">
+
+<!-- Explicit dark mode -->
+<html data-theme="dark">
+
+<!-- High contrast -->
+<html data-theme="high-contrast">
+```
+
+Use the following JavaScript snippet to build a minimal theme switcher. It sets the attribute on the document root and persists the user's choice to `localStorage` so the preference survives page reloads.
+
+```js
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('substrate-theme', theme);
+}
+
+// Restore saved theme on page load
+const saved = localStorage.getItem('substrate-theme');
+if (saved) setTheme(saved);
+```
+
+## Token categories
+
+Substrate organises every CSS custom property into named namespaces. The table below describes each namespace and the values it contains.
+
+| Namespace | Description |
+|---|---|
+| `--color-*` | Color tokens — surface, on-surface, primary, error, and their variants |
+| `--space-*` | Spacing scale tokens — `1`, `2`, `3`, `4`, `6`, `8`, `12`, `16` |
+| `--type-size-*` | Type scale tokens — `xs`, `sm`, `md`, `lg`, `xl`, `2xl`, `3xl` |
+| `--font-*` | Font family tokens — `sans`, `mono` |
+| `--motion-*` | Duration tokens — `instant`, `fast`, `normal`, `slow`, `slower` |
+| `--ease-*` | Easing tokens — `standard`, `enter`, `exit`, `spring` |
+
+<Tip>
+  Use the `acme.json` raw token output to integrate with Figma via [Tokens Studio](https://tokens.studio/), with [Style Dictionary](https://amzn.github.io/style-dictionary/) for custom build pipelines, or with any other token tooling that accepts the W3C Design Token Community Group format.
+</Tip>

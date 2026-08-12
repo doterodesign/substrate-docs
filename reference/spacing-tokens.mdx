@@ -1,0 +1,44 @@
+---
+title: "Spacing Token Reference: Space Scale CSS Variables"
+sidebarTitle: "Spacing Tokens"
+description: "Complete reference for Substrate's spacing tokens — all --space-* variables derived from your space-unit and density setting."
+---
+
+All spacing tokens are integer multiples of `space-unit`, the base unit you define in your brand config. At `density: default` the multiplier is applied directly — `--space-4` is exactly `4 × space-unit`. When you change `density` to `compact` or `comfortable`, every token in the scale shifts uniformly so your entire layout tightens or loosens without touching a single component. The table below shows resolved values for the two most common base units: 4px and 5px.
+
+## Spacing Scale
+
+| Token | Multiplier | Value (4px unit) | Value (5px unit) |
+|---|---|---|---|
+| `--space-0` | 0 | 0 | 0 |
+| `--space-1` | 1× | 4px | 5px |
+| `--space-2` | 2× | 8px | 10px |
+| `--space-3` | 3× | 12px | 15px |
+| `--space-4` | 4× | 16px | 20px |
+| `--space-6` | 6× | 24px | 30px |
+| `--space-8` | 8× | 32px | 40px |
+| `--space-10` | 10× | 40px | 50px |
+| `--space-12` | 12× | 48px | 60px |
+| `--space-16` | 16× | 64px | 80px |
+| `--space-20` | 20× | 80px | 100px |
+| `--space-24` | 24× | 96px | 120px |
+
+<Note>
+Steps 5, 7, 9, 11, and 13–15 are intentionally omitted from the scale. Removing these steps reduces the number of near-identical spacing values, which prevents token choice paralysis and keeps layout decisions consistent across your team.
+</Note>
+
+## Density Multipliers
+
+The `density` setting in your brand config applies a global multiplier to `space-unit` before all other calculations. The three levels give you a single-lever control over information density across your entire product.
+
+| Density | Effective multiplier |
+|---|---|
+| `compact` | 0.75× space-unit |
+| `default` | 1× space-unit |
+| `comfortable` | 1.25× space-unit |
+
+For example, with a 4px `space-unit` and `density: compact`, `--space-4` resolves to `4 × (4px × 0.75) = 12px` instead of 16px.
+
+<Tip>
+Use `density: compact` for data-dense interfaces like tables, dashboards, and admin tools. Use `density: comfortable` for consumer-facing products where reading comfort and touch target size are the priority.
+</Tip>

@@ -1,47 +1,179 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Substrate in Minutes"
+sidebarTitle: "Quickstart"
+description: "Set up your first Substrate brand config, generate accessible tokens, and integrate CSS variables into your project in four steps."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+This guide walks you through creating your first brand config, running the Substrate compiler, and using the generated tokens in a web project. By the end, you'll have a complete, accessible token set — including light, dark, and high-contrast modes — derived entirely from a handful of brand intent values.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+<Tip>
+  Substrate automatically generates `light`, `dark`, `dimmed`, `high-contrast`, and `high-contrast-dark` token sets from your single config file. You never need to author parallel color ramps or contrast overrides by hand.
+</Tip>
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Create your brand config file">
+    Create a file named `substrate.config.json` at the root of your project. This file is the only thing you author by hand — every downstream token is calculated from these values.
+
+    ```json substrate.config.json
+    {
+      "brand": "my-brand",
+      "color": {
+        "primary": {
+          "hue": 160,
+          "chroma": 0.18
+        },
+        "neutral": {
+          "hue": 210,
+          "chroma": 0.02
+        },
+        "accent": {
+          "hue": 280,
+          "chroma": 0.22
+        }
+      },
+      "space-unit": "4px",
+      "type-size-unit": "16px",
+      "scale-ratio": 1.25,
+      "motion-unit": "100ms"
+    }
+    ```
+
+    All color values are expressed as OKLCH hue (0–360) and chroma (0–0.4). Substrate handles lightness for every mode internally — you don't set it here.
+
+    | Field | Description | Example |
+    |---|---|---|
+    | `color.*.hue` | Hue angle in OKLCH (0–360) | `160` |
+    | `color.*.chroma` | Chroma in OKLCH (0–0.4) | `0.18` |
+    | `space-unit` | Base unit for the spacing scale | `4px` |
+    | `type-size-unit` | Base unit for the type scale | `16px` |
+    | `scale-ratio` | Multiplier between scale steps | `1.25` |
+    | `motion-unit` | Base duration for motion tokens | `100ms` |
+  </Step>
+
+  <Step title="Run the Substrate compiler">
+    Run the `substrate build` command from your project root. Substrate reads your config and outputs token files for every platform and mode.
 
     ```bash
-    npm install your-package
+    substrate build
+    ```
+
+    By default, Substrate writes output to a `./substrate-tokens/` directory:
+
+    ```
+    substrate-tokens/
+    ├── web/
+    │   ├── substrate-tokens.css        # All modes as CSS layers
+    │   ├── substrate-tokens.light.css  # Light mode only
+    │   ├── substrate-tokens.dark.css   # Dark mode only
+    │   └── substrate-tokens.hc.css     # High-contrast modes
+    ├── ios/
+    │   └── SubstrateTokens.swift
+    └── android/
+        └── SubstrateTokens.kt
+    ```
+
+    To target a specific platform, pass the `--platform` flag:
+
+    ```bash
+    substrate build --platform web
+    substrate build --platform ios
+    substrate build --platform android
+    ```
+
+    To point at a config file in a non-default location, use `--config`:
+
+    ```bash
+    substrate build --config ./design/brand.config.json
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
+  <Step title="Import the CSS variables">
+    Import the generated CSS file into your project's entry stylesheet. Substrate emits all modes as CSS `@layer` blocks scoped to data attributes, so mode-switching requires no JavaScript beyond toggling a single attribute.
+
+    ```css styles/main.css
+    @import '../substrate-tokens/web/substrate-tokens.css';
     ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
 
-    ```bash
-    your-cli start
+    Substrate tokens follow a predictable naming convention. Use them anywhere you'd use a CSS custom property:
+
+    ```css
+    .button-primary {
+      background-color: var(--color-primary-surface);
+      color: var(--color-primary-on-surface);
+      padding: var(--space-3) var(--space-5);
+      font-size: var(--type-size-2);
+      border-radius: var(--space-1);
+      transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+    }
+
+    .button-primary:hover {
+      background-color: var(--color-primary-surface-hover);
+    }
+    ```
+
+    To switch modes at runtime, set the `data-substrate-mode` attribute on your root element:
+
+    ```html
+    <!-- Light mode (default) -->
+    <html data-substrate-mode="light">
+
+    <!-- Dark mode -->
+    <html data-substrate-mode="dark">
+
+    <!-- High-contrast mode -->
+    <html data-substrate-mode="high-contrast">
+    ```
+
+    You can also let Substrate respect the user's system preference automatically by omitting the attribute entirely — Substrate emits `@media (prefers-color-scheme: dark)` blocks alongside the explicit mode layers.
+  </Step>
+
+  <Step title="Verify accessibility">
+    Open the generated `substrate-tokens.css` file and inspect the comments. Every foreground token includes APCA contrast metadata so you can audit accessibility at a glance without running a separate checker.
+
+    ```css
+    /* substrate-tokens/web/substrate-tokens.css — generated by Substrate */
+
+    [data-substrate-mode="light"] {
+      /* ─── Primary ──────────────────────────────────────────── */
+
+      /* surface: oklch(96% 0.018 160) */
+      --color-primary-surface: #edf8f3;
+
+      /* on-surface: oklch(18% 0.09 160)
+         APCA Lc: 87.4 against --color-primary-surface
+         Target:  Lc 75 (body text) ✓ */
+      --color-primary-on-surface: #0f2e22;
+
+      /* ─── Spacing ───────────────────────────────────────────── */
+      /* base-unit: 4px  |  ratio: 1.25 */
+      --space-1: 4px;
+      --space-2: 5px;
+      --space-3: 6.25px;
+      --space-4: 7.813px;
+      --space-5: 9.766px;
+
+      /* ─── Type scale ────────────────────────────────────────── */
+      /* base-unit: 16px  |  ratio: 1.25 */
+      --type-size-0: 10.24px;   /* 2 steps below base */
+      --type-size-1: 12.8px;    /* 1 step below base  */
+      --type-size-2: 16px;      /* base                */
+      --type-size-3: 20px;      /* 1 step above base  */
+      --type-size-4: 25px;      /* 2 steps above base */
+      --type-size-5: 31.25px;   /* 3 steps above base */
+    }
+    ```
+
+    If a token fails your configured contrast target for any reason (for example, if you override a value manually in a downstream theme), Substrate will flag it during the build with a warning:
+
+    ```
+    ⚠  APCA contrast warning: --color-neutral-on-surface-muted
+       Lc 38.2 against --color-neutral-surface
+       Target: Lc 45 (non-text UI) — below target
+       Mode: light | Brand: my-brand
     ```
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+<Note>
+  The fields shown in this quickstart cover the essentials. See the [Brand Config overview](/brand-config/overview) for the full set of available options, including semantic color roles, CVD accommodation settings, and per-mode contrast targets.
+</Note>

@@ -1,0 +1,104 @@
+---
+title: "Using Substrate Tokens in Android and Kotlin Projects"
+sidebarTitle: "Android / Kotlin"
+description: "Substrate generates a Kotlin token file with color integers, dimension resources, and typography values for all modes. Integrate it into Jetpack Compose or View-based Android projects."
+---
+
+Substrate compiles your design tokens into a single Kotlin file containing typed color, spacing, and typography constants for every display mode. The file slots directly into any Android project — it has no external dependencies beyond the Compose UI libraries you likely already use, and it works equally well with View-based layouts.
+
+## Output file
+
+After running `substrate build`, Substrate places the Kotlin token file alongside the other platform outputs:
+
+```
+dist/tokens/acme/
+└── acme.kt
+```
+
+## Adding to your project
+
+<Steps>
+  <Step title="Copy the token file into your app module">
+    Place `acme.kt` inside your app module's source set. A conventional location is:
+
+    ```
+    app/src/main/java/com/acme/design/SubstrateTokens.kt
+    ```
+
+    Update the `package` declaration at the top of the file to match your module's package name if it differs from the default.
+  </Step>
+  <Step title="Verify dependencies">
+    No additional Gradle dependencies are required. The file uses only `androidx.compose.ui.graphics.Color` and `androidx.compose.ui.unit.*`, which are included in the standard Compose UI artifact.
+  </Step>
+</Steps>
+
+## Using tokens in Jetpack Compose
+
+Import `SubstrateTokens` from your design package and reference its nested objects — `Color`, `Space`, `TypeSize` — inside any composable. All values are fully typed and integrate naturally with Compose's layout and styling APIs.
+
+```kotlin
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import com.acme.design.SubstrateTokens
+
+@Composable
+fun PrimaryButton(label: String, onClick: () -> Unit) {
+  Button(
+    onClick = onClick,
+    colors = ButtonDefaults.buttonColors(
+      containerColor = SubstrateTokens.Color.primary,
+      contentColor = SubstrateTokens.Color.onPrimary
+    ),
+    modifier = Modifier.padding(
+      horizontal = SubstrateTokens.Space.space4,
+      vertical = SubstrateTokens.Space.space2
+    )
+  ) {
+    Text(
+      text = label,
+      fontSize = SubstrateTokens.TypeSize.md
+    )
+  }
+}
+```
+
+## Dark mode and dynamic theming
+
+Substrate's Kotlin output includes separate `Light` and `Dark` token objects. Use Compose's `isSystemInDarkTheme()` to select the correct set at runtime and pass it into your `MaterialTheme` wrapper:
+
+```kotlin
+@Composable
+fun AcmeTheme(content: @Composable () -> Unit) {
+  val tokens = if (isSystemInDarkTheme()) {
+    SubstrateTokens.Dark
+  } else {
+    SubstrateTokens.Light
+  }
+
+  MaterialTheme(
+    colorScheme = tokens.toColorScheme(),
+    content = content
+  )
+}
+```
+
+This approach ensures that every component inside `AcmeTheme` automatically receives the correct token values without any per-component conditional logic.
+
+## High contrast
+
+Substrate generates a dedicated high-contrast token set that maps to Android's forced-contrast night mode. Read the system accessibility preference at runtime and switch to `SubstrateTokens.HighContrast` when it is enabled:
+
+```kotlin
+// Check for high contrast preference
+val accessibilityManager = getSystemService(ACCESSIBILITY_SERVICE) as AccessibilityManager
+if (accessibilityManager.isHighTextContrastEnabled) {
+  // Use SubstrateTokens.HighContrast
+}
+```
+
+You can combine this check with the dark/light selection above to cover all five Substrate display modes within a single theme composable.
+
+<Tip>
+  Integrate Substrate's Kotlin output with your `MaterialTheme` so every component in your app inherits brand tokens automatically — rather than referencing token values directly in each composable. This keeps your component code free of design-system imports and makes future token updates a single-file change.
+</Tip>

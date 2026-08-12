@@ -1,0 +1,94 @@
+---
+title: "Display Modes: Automatic Accessibility Across Every Context"
+sidebarTitle: "Overview"
+description: "Substrate generates five display modes from your brand config — light, dark, dimmed, high-contrast, and high-contrast-dark — with APCA-verified contrast in each."
+---
+
+Most design systems ship a single fixed token scale. If a user works in a dark environment, enables high-contrast mode, or has a color vision deficiency, that scale may fail them entirely. Substrate takes a different approach: from one brand config, it automatically generates five fully-accessible display modes so every user gets verified contrast regardless of their context, device, or visual needs.
+
+## The five modes
+
+Each mode is a complete, self-contained token set derived from the same brand config. Substrate recalculates lightness values using APCA contrast solving for every foreground/background pair in every mode — you never tune contrast by hand.
+
+<AccordionGroup>
+  <Accordion title="light — Standard light-background interface">
+    The default mode. Surfaces are near-white, foreground text is near-black, and accent colors are placed at a lightness that clears APCA Lc 60 on the lightest permitted background. This is the baseline from which all other modes are derived.
+  </Accordion>
+
+  <Accordion title="dark — Dark-background interface">
+    Built for low-light environments and user preference. Substrate inverts the lightness logic: surfaces drop to near-black and foreground tokens rise to near-white. Hue and chroma can be independently tuned for dark (see [Light & Dark](./light-dark)) so neutrals can shift subtly warmer or cooler without a separate config.
+  </Accordion>
+
+  <Accordion title="dimmed — Reduced-luminance dark variant">
+    A gentler dark mode. Luminance is reduced further than standard dark, making it well-suited for OLED screens (where true black saves battery) and nighttime reading sessions where a full-brightness dark theme is still too bright. APCA contrast targets are preserved at the lower luminance floor.
+  </Accordion>
+
+  <Accordion title="high-contrast — Dramatically increased contrast on a light base">
+    Targets users who require maximum legibility — including users with low vision, those in high-ambient-light environments, and anyone who has enabled the OS-level "increase contrast" preference. All foreground/background pairs are pushed to APCA Lc 90+ while keeping your brand hue intact. See [High Contrast](./high-contrast).
+  </Accordion>
+
+  <Accordion title="high-contrast-dark — Maximum contrast on a dark base">
+    The same APCA Lc 90+ recalculation applied to a dark-background base. Serves users who prefer dark interfaces but also need maximum legibility — a combination that most design systems do not address at all.
+  </Accordion>
+</AccordionGroup>
+
+## Applying modes
+
+Substrate's CSS output uses a `data-theme` attribute. Set it on the `<html>` element to apply a mode globally, or on any container element to scope a mode to a subtree.
+
+```html
+<!-- Apply a theme globally -->
+<html data-theme="dark">
+
+<!-- Apply a theme to a subtree -->
+<div data-theme="high-contrast">
+```
+
+All five mode values follow the same pattern:
+
+```html
+<html data-theme="light">
+<html data-theme="dark">
+<html data-theme="dimmed">
+<html data-theme="high-contrast">
+<html data-theme="high-contrast-dark">
+```
+
+### Automatic OS preference detection
+
+You do not need JavaScript to follow OS-level preferences. Substrate's CSS output includes both `@media (prefers-color-scheme: dark)` and `@media (prefers-contrast: more)` blocks out of the box. When no explicit `data-theme` is set, the browser activates the correct mode automatically based on the user's system settings.
+
+```css
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    /* dark token values */
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root:not([data-theme]) {
+    /* high-contrast token values */
+  }
+}
+```
+
+<Tip>
+  Setting `data-theme` explicitly on an element always takes precedence over the media-query fallback. This is the mechanism you use to build a theme-switcher control — write the user's choice to `data-theme` on `<html>` and the CSS cascade handles the rest.
+</Tip>
+
+## Explore each mode
+
+<CardGroup cols={2}>
+  <Card title="Light & Dark" icon="circle-half-stroke" href="./light-dark">
+    How Substrate derives light and dark token sets from a single color intent, including multi-stop hue and chroma shifts.
+  </Card>
+  <Card title="High Contrast" icon="eye" href="./high-contrast">
+    How APCA Lc 90+ recalculation works and how OS contrast preferences are wired automatically.
+  </Card>
+  <Card title="Color Vision" icon="palette" href="./color-vision">
+    CVD presets for protanopia, deuteranopia, and tritanopia — one config flag generates a full alternate token set.
+  </Card>
+  <Card title="Brand Config" icon="sliders" href="/brand-config/overview">
+    The single source of truth that drives all five modes. Start here when setting up a new project.
+  </Card>
+</CardGroup>

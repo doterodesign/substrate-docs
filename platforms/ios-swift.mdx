@@ -1,0 +1,78 @@
+---
+title: "Using Substrate Tokens in iOS and Swift Projects"
+sidebarTitle: "iOS / Swift"
+description: "Substrate generates a Swift token file with Color, Font, and CGFloat constants for all modes. Add it to your Xcode project and reference tokens directly in SwiftUI or UIKit."
+---
+
+Substrate compiles your design tokens into a single Swift file that exposes every color, spacing, typography, and motion value as typed constants. The file requires no third-party dependencies and works with both SwiftUI and UIKit — you reference tokens directly through the `SubstrateTokens` enum namespace without any additional setup.
+
+## Output file
+
+After running `substrate build`, Substrate places the Swift token file alongside the other platform outputs:
+
+```
+dist/tokens/acme/
+└── acme.swift
+```
+
+## Adding to Xcode
+
+<Steps>
+  <Step title="Copy or symlink the token file">
+    Copy `acme.swift` into your Xcode project directory, or create a symlink so the file stays in sync with future `substrate build` runs. A common location is `YourApp/DesignSystem/SubstrateTokens.swift`.
+  </Step>
+  <Step title="Add the file to your target">
+    In Xcode, select `acme.swift` in the Project Navigator and open the **File Inspector** (⌥ ⌘ 1). Confirm that your app target is checked under **Target Membership**.
+  </Step>
+  <Step title="Start using tokens">
+    No `import` statement is required. The tokens are declared as top-level constants inside the `SubstrateTokens` enum, which is globally accessible throughout your module once the file is part of the target.
+  </Step>
+</Steps>
+
+## Using tokens in SwiftUI
+
+Reference `SubstrateTokens` directly inside any `View`. Each category is a nested enum — `Color`, `Space`, `TypeSize`, `Font`, `Motion` — keeping autocompletion focused and discoverable.
+
+```swift
+import SwiftUI
+
+struct PrimaryButton: View {
+  var body: some View {
+    Button("Continue") {}
+      .padding(.horizontal, SubstrateTokens.Space.space4)
+      .padding(.vertical, SubstrateTokens.Space.space2)
+      .background(SubstrateTokens.Color.primary)
+      .foregroundColor(SubstrateTokens.Color.onPrimary)
+      .font(.system(size: SubstrateTokens.TypeSize.md))
+  }
+}
+```
+
+## Using tokens in UIKit
+
+For UIKit views, color tokens expose a `.uiColor` helper that converts the SwiftUI `Color` value to a `UIColor`. All spacing and type size values are `CGFloat` constants and can be used directly.
+
+```swift
+let button = UIButton()
+button.backgroundColor = SubstrateTokens.Color.primary.uiColor
+button.setTitleColor(SubstrateTokens.Color.onPrimary.uiColor, for: .normal)
+button.titleLabel?.font = .systemFont(ofSize: SubstrateTokens.TypeSize.md)
+```
+
+## Mode support
+
+Substrate's Swift tokens use `UITraitCollection` and `NSTraitCollection` under the hood to return the correct resolved value for the device's current appearance. You do not need to write any conditional logic for standard light and dark modes.
+
+```swift
+// Returns the light or dark value automatically
+SubstrateTokens.Color.surface
+
+// Force a specific mode
+SubstrateTokens.Color.surface.resolving(in: .darkMode)
+```
+
+Calling `.resolving(in:)` with a specific trait collection override is useful in previews, screenshot tests, or any context where you need to render a fixed appearance regardless of the system setting.
+
+<Note>
+  High-contrast and color vision deficiency (CVD) variants require the corresponding `data-theme` value to be reflected in your app's trait collection override. Refer to Apple's [`UITraitCollection.init(accessibilityContrast:)`](https://developer.apple.com/documentation/uikit/uitraitcollection/3238079-init) documentation for setup instructions on how to apply an `accessibilityContrast` override at the window or view-controller level.
+</Note>

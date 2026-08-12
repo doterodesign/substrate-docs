@@ -1,0 +1,78 @@
+---
+title: "Brand Inheritance and Workspace-Level Defaults in Substrate"
+sidebarTitle: "Inheritance"
+description: "Set shared defaults at the workspace level and override them per brand. Substrate merges configs using a predictable cascade: workspace → brand."
+---
+
+When you run multiple brands from one workspace, most of them share the same foundational decisions: base spacing, scale ratio, motion timing, density, and CVD simulation presets. Repeating those values in every brand config introduces drift — one brand gets updated, the others fall behind. Substrate's inheritance model lets you declare those shared values once at the workspace level and override only what genuinely differs per brand.
+
+## The cascade
+
+Substrate resolves the effective configuration for each brand using a two-level cascade:
+
+1. **Workspace defaults** — values set in the `defaults` block of `substrate.workspace.json` apply to every brand in the workspace.
+2. **Brand config** — values in a brand's `substrate.config.json` override the workspace default for that field.
+
+Any field not specified in a brand config falls back to the workspace default. Any field not specified in either level falls back to Substrate's built-in system defaults.
+
+## Setting workspace-level defaults
+
+Add a `defaults` block to `substrate.workspace.json` to establish shared values across all brands:
+
+```json
+{
+  "brands": ["brands/acme", "brands/nova", "brands/pulse"],
+  "output": "./dist/tokens",
+  "defaults": {
+    "space-unit": "4px",
+    "scale-ratio": 1.25,
+    "motion-unit": "100ms",
+    "density": "default",
+    "cvd": ["protanopia", "deuteranopia"]
+  }
+}
+```
+
+- **`space-unit`** — base spacing unit shared across all brands unless overridden.
+- **`scale-ratio`** — type scale multiplier. Brands that need a tighter or looser typographic scale override this individually.
+- **`motion-unit`** — base duration from which all motion tokens are derived.
+- **`density`** — default density tier. Individual brands or components can shift density, but this sets the baseline.
+- **`cvd`** — the CVD simulation presets Substrate validates contrast against during every build. Setting this at the workspace level ensures every brand meets the same color-vision-deficiency requirements automatically.
+
+## Overriding defaults in a brand config
+
+A brand only needs to declare values that differ from the workspace defaults. In this example, the `nova` brand uses a tighter type scale than the workspace default but inherits everything else:
+
+```json
+{
+  "brand": "nova",
+  "type-size-unit": "15px",
+  "scale-ratio": 1.2,
+  "color": {
+    "primary": { "hue": 260, "chroma": 0.22 }
+  }
+}
+```
+
+`nova` sets its own `type-size-unit` and `scale-ratio`. Every other field — `space-unit`, `motion-unit`, `density`, and `cvd` — is inherited from the workspace defaults without any extra work.
+
+## Effective value resolution
+
+The table below shows how workspace defaults and brand overrides combine to produce the effective value Substrate uses during the build:
+
+| Field | Workspace Default | Nova Override | Effective Value |
+|---|---|---|---|
+| `space-unit` | `4px` | _(not set)_ | `4px` |
+| `type-size-unit` | _(not set)_ | `15px` | `15px` |
+| `scale-ratio` | `1.25` | `1.2` | `1.2` |
+| `motion-unit` | `100ms` | _(not set)_ | `100ms` |
+
+The CVD presets (`protanopia`, `deuteranopia`) set at the workspace level apply to all brands during every build. You never need to repeat them in individual brand configs — every brand gets validated against those simulations automatically.
+
+<Warning>
+  Any field set in a brand config fully overrides the workspace default for that field. There is no merging of sub-fields. If a brand sets `color.primary`, it must supply the complete intent object including both `hue` and `chroma`. Partial objects are not merged with workspace or system defaults.
+</Warning>
+
+<Tip>
+  Start by setting your most conservative values at the workspace level — the smallest `space-unit` and the lowest `scale-ratio` that any brand in your portfolio uses. Then let individual brands increase those values as needed. This ensures no brand accidentally ships a denser or more compact layout than intended, and gives you a safe minimum baseline to audit against.
+</Tip>

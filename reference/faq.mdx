@@ -1,0 +1,56 @@
+---
+title: "Substrate FAQ: Common Questions and Answers"
+sidebarTitle: "FAQ"
+description: "Answers to common questions about Substrate — how it differs from static token libraries, how to migrate, and how to integrate with Figma and other design tools."
+---
+
+Below you'll find answers to the questions that come up most often when teams are evaluating or adopting Substrate. If your question isn't covered here, open a discussion in the Substrate repository or reach out to the Unknown Creatives team.
+
+<Accordion title="How is Substrate different from Style Dictionary or Tokens Studio?">
+Style Dictionary and Tokens Studio are excellent tools for managing and transforming static token values. Substrate sits one level earlier: instead of storing values, it stores intent and computes values. You feed Substrate a color hue and chroma — it figures out the correct lightness for every surface and every mode. The output can feed into Style Dictionary or other tooling if needed. Think of Substrate as the layer that eliminates the spreadsheet of hex values your team has been maintaining by hand.
+</Accordion>
+
+<Accordion title="Do I need to hand-author any token values?">
+No. The brand config contains only intent: hue, chroma, dimensional units, and scale ratios. Substrate derives every token value from those inputs. The one exception is `font`, where you supply your font stack strings — because font choice is a brand decision that has no mathematical basis Substrate can infer.
+</Accordion>
+
+<Accordion title="Can I use Substrate with an existing design system?">
+Yes. You can run Substrate alongside an existing system to generate tokens for specific parts of your UI — for example, using Substrate only for your color and spacing scales while keeping existing component-level tokens. The generated CSS custom properties integrate with any CSS-in-JS library, Tailwind, or plain CSS. Because Substrate's output is scoped to `data-theme` attributes and namespaced `--color-*` / `--space-*` properties, it is unlikely to collide with your existing token names.
+</Accordion>
+
+<Accordion title="How do I integrate Substrate tokens with Figma?">
+Substrate generates a `brand.json` raw token file alongside its CSS output. Import it into Figma using the Tokens Studio plugin or Figma's native variable import. Map Substrate's semantic tokens to your Figma variable collections — surface tokens become background fills, on-surface tokens become text fills, and so on. When you rebuild Substrate after a brand config change, re-import the updated JSON to keep Figma in sync. Consider adding the `substrate build` step to your CI pipeline and committing `brand.json` to version control so Figma imports are always reproducible.
+</Accordion>
+
+<Accordion title="What happens if I change my brand's primary hue?">
+Change the `hue` value in your brand config and run `substrate build`. All downstream token values — across every mode, every semantic role, and every platform output — are recomputed automatically. No other files need updating. The APCA solver re-derives lightness for the new hue, so contrast guarantees are maintained without any additional work on your part.
+</Accordion>
+
+<Accordion title="Does Substrate support custom density per component?">
+The `density` setting in your brand config sets a global density level. Component-level density overrides are not currently supported in the config. However, components can apply density by reading spacing tokens from a local element with a custom `data-density` attribute if you build that into your component library — for example, wrapping a compact table in `<div data-density="compact">` and applying a CSS rule that overrides `--space-unit` on that element.
+</Accordion>
+
+<Accordion title="Can I disable specific generated modes?">
+Yes. Add a `modes` field to your brand config listing only the modes you want Substrate to generate:
+
+```json
+{
+  "brand": "acme",
+  "modes": ["light", "dark"]
+}
+```
+
+Substrate will skip the omitted modes entirely — no `data-theme` selectors, no Swift/Kotlin constants, no output files. Omitting high-contrast modes is not recommended for products serving users with visual accessibility needs.
+</Accordion>
+
+<Accordion title="How do I migrate from a hand-authored token system?">
+Start by identifying your existing semantic token roles — primary, surface, on-surface, error, and so on — and mapping them to Substrate's intent model. Replace your fixed hex values with OKLCH hue and chroma values. (A color picker that shows OKLCH values, or a conversion tool, makes this straightforward.) Run `substrate build` and compare the generated tokens against your existing values — expect some lightness differences, since APCA replaces whatever contrast approach you were using before. Migrate component by component, starting with the lowest-risk surfaces: background layers and borders first, then text colors, then interactive states. This incremental approach lets you ship progressively without a big-bang swap.
+</Accordion>
+
+<Accordion title="Does Substrate output tokens for iOS and Android?">
+Yes. Every build produces three output formats in parallel: CSS custom properties for web, Swift constants for iOS/macOS, and Kotlin values for Android. All three are generated from the same solved values, so your platforms stay in sync automatically. The Swift and Kotlin outputs use your `brand` identifier as the namespace — for example, `AcmeTokens.colorPrimary` in Swift.
+</Accordion>
+
+<Accordion title="What color space does Substrate use internally?">
+Substrate performs all color math in OKLCH — a perceptually uniform color space that separates lightness (L), chroma (C), and hue (H) into independent axes. Perceptual uniformity means that equal numerical changes in lightness produce equal perceived changes across the full lightness range. This property is what makes APCA solving tractable: Substrate can do a binary search on the L axis to hit an Lc target without hue or chroma drift. The generated CSS uses `oklch()` function syntax, which is supported in all modern browsers.
+</Accordion>

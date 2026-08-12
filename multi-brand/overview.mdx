@@ -1,0 +1,63 @@
+---
+title: "Multi-Brand Architecture with a Single Design System"
+sidebarTitle: "Overview"
+description: "Run multiple brands from one Substrate installation. Each brand gets its own accessible token set while sharing the same mathematical foundation and accessibility rules."
+---
+
+Managing multiple brands from a single design system is one of the hardest problems in design infrastructure. Without a deliberate architecture, teams end up maintaining parallel token files that drift apart over time, enforcing accessibility rules inconsistently, and duplicating work every time a new brand is introduced. Substrate solves this by separating the mathematical engine from the brand-specific inputs — you supply color intents and dimensional units per brand, and Substrate handles the rest.
+
+## How it works
+
+Every brand in a Substrate workspace shares the same core engine: APCA-based contrast solving, mode generation, density behavior, and motion scaling all run identically for every brand. What changes between brands is limited to their color intents (hue, chroma, and semantic role) and dimensional units (base spacing, type size, and scale ratio). This means a new brand inherits correct accessibility behavior from its very first build, with no extra configuration required.
+
+## Project structure
+
+A multi-brand Substrate workspace follows a predictable directory layout. Each brand lives in its own subdirectory under `brands/`, containing a single config file. The workspace file at the root registers all brands and sets the shared output path.
+
+```
+substrate/
+├── brands/
+│   ├── acme/
+│   │   └── substrate.config.json
+│   ├── nova/
+│   │   └── substrate.config.json
+│   └── pulse/
+│       └── substrate.config.json
+└── substrate.workspace.json
+```
+
+## Workspace file
+
+The `substrate.workspace.json` file is the entry point for your multi-brand setup. It lists every brand by its directory path and specifies where compiled token output should land.
+
+```json
+{
+  "brands": ["brands/acme", "brands/nova", "brands/pulse"],
+  "output": "./dist/tokens"
+}
+```
+
+## Building tokens
+
+To compile tokens for every brand in one pass, run the build command with the `--all` flag:
+
+```bash
+substrate build --all
+```
+
+To build a single brand in isolation — useful during development or in brand-scoped CI pipelines — pass the brand name directly:
+
+```bash
+substrate build --brand acme
+```
+
+Each build writes platform-ready output (CSS, Swift, Kotlin, and JSON) into a brand-namespaced subdirectory under the configured output path.
+
+<CardGroup cols={2}>
+  <Card title="Adding a Brand" icon="circle-plus" href="/multi-brand/adding-a-brand">
+    Create a new brand config file and register it in your workspace in five steps.
+  </Card>
+  <Card title="Inheritance" icon="arrow-down-to-bracket" href="/multi-brand/inheritance">
+    Set workspace-level defaults and override them per brand using a predictable cascade.
+  </Card>
+</CardGroup>

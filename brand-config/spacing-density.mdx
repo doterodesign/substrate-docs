@@ -1,0 +1,64 @@
+---
+title: "Spacing Scale and Density Settings in Substrate"
+sidebarTitle: "Spacing & Density"
+description: "Substrate derives your entire spacing scale from a single space-unit and adjusts it automatically across compact, default, and comfortable density settings."
+---
+
+Substrate generates your full spacing scale from a single value: `space-unit`. Every spacing token in your system is an integer multiple of this base, giving you a consistent spatial rhythm without maintaining a token table by hand. Pair it with the `density` setting to shift the scale up or down for different product contexts — from data-dense dashboards to generous consumer interfaces.
+
+## Spacing config
+
+```json
+"space-unit": "4px",
+"density": "default"
+```
+
+- **`space-unit`** — The indivisible base unit of your spacing system. A value of `"4px"` means all tokens are multiples of 4, giving you the 4px grid that underpins most modern UI systems. An 8px grid is `"8px"`. Defaults to `"4px"`.
+- **`density`** — A named modifier that scales the effective space unit at build time without changing the token names. Defaults to `"default"`.
+
+## Density options
+
+| Density | Description |
+|---|---|
+| `compact` | Tighter spacing; suited for data-dense UIs such as admin dashboards, tables, and developer tools |
+| `default` | Standard spacing scale; appropriate for most products and design systems |
+| `comfortable` | More generous spacing; suited for consumer apps, marketing pages, and reading-focused interfaces |
+
+## Generated spacing tokens
+
+With `space-unit: "4px"` and `density: "default"`, Substrate produces the following tokens:
+
+```css
+:root {
+  --space-1: 4px;   /* 1 unit */
+  --space-2: 8px;   /* 2 units */
+  --space-3: 12px;  /* 3 units */
+  --space-4: 16px;  /* 4 units */
+  --space-6: 24px;  /* 6 units */
+  --space-8: 32px;  /* 8 units */
+  --space-12: 48px; /* 12 units */
+  --space-16: 64px; /* 16 units */
+}
+```
+
+Token names reflect the multiplier, not the pixel value — `--space-4` always means "4 units," regardless of what density setting is active. This keeps component code portable across density configurations.
+
+## How density works
+
+Density multiplies the effective `space-unit` value at build time. Switching from `"default"` to `"compact"` causes every spacing token to regenerate with a smaller base — without touching a single line of component code. Your components continue to reference `--space-4`; the system changes what that value resolves to.
+
+<Steps>
+  <Step title="Set your density in the config">
+    Update `"density"` in `substrate.config.json` to `"compact"`, `"default"`, or `"comfortable"`.
+  </Step>
+  <Step title="Run the Substrate build">
+    Execute `substrate build` (or your configured build script). All spacing tokens are regenerated instantly.
+  </Step>
+  <Step title="Ship — no component changes needed">
+    Every component that uses Substrate spacing tokens picks up the new values automatically. No find-and-replace, no per-component overrides.
+  </Step>
+</Steps>
+
+<Note>
+  Density affects more than raw spacing tokens. Substrate's built-in component recipes — buttons, inputs, cards, and navigation elements — also use the density setting to adjust their internal padding. Switching density produces a coherent layout shift across the entire system, not just standalone spacing values.
+</Note>

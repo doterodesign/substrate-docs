@@ -1,0 +1,93 @@
+---
+title: "Add a New Brand to Your Substrate Workspace"
+sidebarTitle: "Adding a Brand"
+description: "Add a new brand to Substrate by creating a config file with color intents and dimensional units. Accessibility behavior is automatic from the first build."
+---
+
+Adding a brand to Substrate takes about five minutes. You create a directory, write a config file that describes the brand's color intents and dimensional units, register it in the workspace file, and run a build. Substrate resolves contrast, generates all display modes, and writes platform-ready token files automatically — no manual accessibility work required.
+
+<Steps>
+
+  <Step title="Create the brand directory">
+    Create a dedicated directory for the new brand inside your `brands/` folder. This is where the brand's config file will live.
+
+    ```bash
+    mkdir -p substrate/brands/nova
+    ```
+  </Step>
+
+  <Step title="Create the brand config file">
+    Create `substrate/brands/nova/substrate.config.json` and define the brand's color intents and dimensional units.
+
+    ```json
+    {
+      "brand": "nova",
+      "color": {
+        "primary": { "hue": 260, "chroma": 0.22 },
+        "neutral": {
+          "light": { "hue": 255, "chroma": 0.01 },
+          "dark": { "hue": 265, "chroma": 0.02 }
+        },
+        "error": { "hue": 5, "chroma": 0.24 },
+        "success": { "hue": 155, "chroma": 0.20 }
+      },
+      "space-unit": "4px",
+      "type-size-unit": "15px",
+      "scale-ratio": 1.2
+    }
+    ```
+
+    Here is what each field controls:
+
+    - **`brand`** — the brand identifier used to namespace output files and token prefixes.
+    - **`color.primary`** — the hue (0–360) and chroma (0–0.4 in Oklch) of the brand's primary color intent. Substrate derives all lightness values and contrast-safe pairings from these two inputs.
+    - **`color.neutral`** — separate hue and chroma values for light-mode and dark-mode neutral surfaces. Splitting these allows the neutral to feel slightly warm or cool in each mode independently.
+    - **`color.error` / `color.success`** — semantic color intents for feedback states. Supply hue and chroma; Substrate handles the accessible lightness at each density and mode.
+    - **`space-unit`** — the base unit for all spacing steps in the scale. A value of `4px` means the first spacing step is `4px`, the second is `8px`, and so on.
+    - **`type-size-unit`** — the base body type size from which the type scale is derived.
+    - **`scale-ratio`** — the multiplier between adjacent type scale steps. A value of `1.2` produces a Minor Third scale.
+  </Step>
+
+  <Step title="Register the brand in the workspace file">
+    Open `substrate.workspace.json` at the root of your Substrate workspace and add the new brand's directory path to the `brands` array.
+
+    ```json
+    {
+      "brands": ["brands/acme", "brands/nova"],
+      "output": "./dist/tokens"
+    }
+    ```
+  </Step>
+
+  <Step title="Build the new brand">
+    Run the build command for the new brand. Substrate compiles the full token set — all modes, all platforms — in a single pass.
+
+    ```bash
+    substrate build --brand nova
+    ```
+  </Step>
+
+  <Step title="Verify the output">
+    After the build completes, confirm that the expected output files exist under the brand's namespaced directory.
+
+    ```
+    dist/tokens/
+    └── nova/
+        ├── nova.css          # CSS variables for all modes
+        ├── nova.swift        # Swift token file
+        ├── nova.kt           # Kotlin token file
+        └── nova.json         # Raw token JSON (for Figma/tooling)
+    ```
+
+    Each platform file is self-contained and includes tokens for every display mode. You can import `nova.css` directly into your web project or hand `nova.swift` and `nova.kt` off to your native platform teams.
+  </Step>
+
+</Steps>
+
+<Note>
+  Each brand automatically gets all five display modes — light, dark, dimmed, high-contrast, and high-contrast-dark — without any extra configuration. Substrate generates the full mode set from your color intents on every build.
+</Note>
+
+<Tip>
+  You only need to specify what's different from your workspace-level defaults. If all your brands share the same `space-unit` and `scale-ratio`, set those in the `defaults` block of `substrate.workspace.json` and omit them from individual brand configs. See [Inheritance](/multi-brand/inheritance) for details on the cascade.
+</Tip>

@@ -1,0 +1,199 @@
+---
+title: "Substrate Config File Schema Reference"
+sidebarTitle: "Config Schema"
+description: "Complete reference for substrate.config.json — every field, its type, default value, and accepted values. Use this to configure brands and workspace-level defaults."
+---
+
+The brand config file — `substrate.config.json` at the root of your project — is the single input to Substrate. You never write token values directly; you describe your brand's intent and let Substrate compute every downstream value. This page documents every supported field so you can tune the system to exactly what your brand needs.
+
+## Top-Level Fields
+
+<ParamField body="brand" type="string" required>
+  Unique identifier for this brand. Used as the prefix in output filenames and the
+  namespace for generated Swift/Kotlin tokens. Use lowercase, hyphen-separated values
+  (e.g. `"acme"`, `"acme-internal"`).
+</ParamField>
+
+<ParamField body="color" type="object" required>
+  Color intent definitions. Each key is a semantic role; the value defines hue,
+  chroma, and optional per-mode overrides. See the [Color Intent Object](#color-intent-object)
+  section below for the full nested schema.
+</ParamField>
+
+<ParamField body="space-unit" type="string" default="4px">
+  Base unit for the spacing scale. All `--space-*` tokens are multiples of this value.
+  Supports `px` values only (e.g. `"4px"`, `"5px"`, `"8px"`).
+</ParamField>
+
+<ParamField body="type-size-unit" type="string" default="16px">
+  Base font size for the type scale. All `--type-size-*` tokens are derived from this
+  value using the `scale-ratio`. Supports `px` values only.
+</ParamField>
+
+<ParamField body="scale-ratio" type="number" default="1.25">
+  Modular scale ratio applied to the type scale. Common values:
+
+  - `1.2` — Minor Third (compact, disciplined)
+  - `1.25` — Major Third (balanced, default)
+  - `1.333` — Perfect Fourth (expressive)
+  - `1.5` — Perfect Fifth (editorial, high-contrast hierarchy)
+</ParamField>
+
+<ParamField body="motion-unit" type="string" default="100ms">
+  Base animation duration. All `--motion-*` duration tokens are multiples of this value.
+  Supports `ms` values only (e.g. `"80ms"`, `"100ms"`, `"120ms"`).
+</ParamField>
+
+<ParamField body="density" type="string" default="default">
+  Controls the density multiplier applied to all spacing tokens. Accepted values:
+  `"compact"`, `"default"`, `"comfortable"`.
+</ParamField>
+
+<ParamField body="modes" type="array">
+  List of display modes to generate. When omitted, all modes are generated. Accepted
+  values: `"light"`, `"dark"`, `"dimmed"`, `"high-contrast"`, `"high-contrast-dark"`.
+
+  ```json
+  {
+    "modes": ["light", "dark"]
+  }
+  ```
+
+  <Warning>
+  Omitting `"high-contrast"` and `"high-contrast-dark"` is not recommended for products
+  serving users with visual accessibility needs.
+  </Warning>
+</ParamField>
+
+<ParamField body="cvd" type="array">
+  List of color vision deficiency presets to generate. Accepted values: `"protanopia"`,
+  `"deuteranopia"`, `"tritanopia"`. Each preset generates an additional `data-theme`
+  token set with hues and chromas adjusted for the target CVD profile.
+
+  ```json
+  {
+    "cvd": ["protanopia", "deuteranopia"]
+  }
+  ```
+</ParamField>
+
+<ParamField body="contrast-targets" type="object">
+  Override the default APCA Lc targets for specific token roles. See the
+  [APCA Solver reference](/reference/apca-solver) for the full list of role keys and
+  their defaults.
+
+  ```json
+  {
+    "contrast-targets": {
+      "body-text": 75,
+      "muted-text": 55
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField body="font" type="object">
+  Optional font stack overrides. Accepted keys: `"sans"` and `"mono"`. Values are
+  CSS font-family strings.
+
+  ```json
+  {
+    "font": {
+      "sans": "\"Inter\", system-ui, sans-serif",
+      "mono": "\"JetBrains Mono\", monospace"
+    }
+  }
+  ```
+</ParamField>
+
+## Color Intent Object
+
+The `color` field takes an object where each key is a semantic color role (`primary`, `neutral`, `error`, `warning`, `success`, `info`). Each role accepts either a flat intent object or a multi-stop object with per-mode overrides.
+
+### Flat intent (single hue/chroma across all modes)
+
+```json
+{
+  "color": {
+    "primary": {
+      "hue": 160,
+      "chroma": 0.18
+    }
+  }
+}
+```
+
+### Multi-stop (different values for light and dark modes)
+
+```json
+{
+  "color": {
+    "neutral": {
+      "light": { "hue": 210, "chroma": 0.02 },
+      "dark": { "hue": 220, "chroma": 0.04 }
+    }
+  }
+}
+```
+
+### Color intent field reference
+
+<ParamField body="hue" type="number" required>
+  OKLCH hue angle for this color role. Accepts values from `0` to `360`. The hue is
+  held constant while Substrate solves for the correct lightness to meet APCA contrast
+  targets on each surface.
+</ParamField>
+
+<ParamField body="chroma" type="number" required>
+  OKLCH chroma (colorfulness) for this color role. Accepts values from `0` (achromatic)
+  to `0.4` (maximum gamut). Most UI colors sit between `0.1` and `0.25`. Neutral palettes
+  typically use `0.01`–`0.04` for subtle color temperature.
+</ParamField>
+
+<ParamField body="light" type="object">
+  Per-mode intent override for light-family modes (`light`, `high-contrast`). Contains
+  `hue` and `chroma` keys. Use when your brand color needs to shift hue or chroma
+  between light and dark contexts.
+</ParamField>
+
+<ParamField body="dark" type="object">
+  Per-mode intent override for dark-family modes (`dark`, `dimmed`, `high-contrast-dark`).
+  Contains `hue` and `chroma` keys.
+</ParamField>
+
+## Complete Example
+
+```json
+{
+  "brand": "acme",
+  "color": {
+    "primary": {
+      "hue": 160,
+      "chroma": 0.18
+    },
+    "neutral": {
+      "light": { "hue": 210, "chroma": 0.02 },
+      "dark": { "hue": 220, "chroma": 0.04 }
+    },
+    "error": { "hue": 25, "chroma": 0.22 },
+    "warning": { "hue": 75, "chroma": 0.20 },
+    "success": { "hue": 145, "chroma": 0.20 },
+    "info": { "hue": 230, "chroma": 0.18 }
+  },
+  "space-unit": "4px",
+  "type-size-unit": "16px",
+  "scale-ratio": 1.25,
+  "motion-unit": "100ms",
+  "density": "default",
+  "modes": ["light", "dark", "high-contrast", "high-contrast-dark"],
+  "cvd": ["protanopia", "deuteranopia"],
+  "contrast-targets": {
+    "body-text": 70,
+    "muted-text": 45
+  },
+  "font": {
+    "sans": "\"Inter\", system-ui, sans-serif",
+    "mono": "\"JetBrains Mono\", monospace"
+  }
+}
+```

@@ -1,0 +1,101 @@
+---
+title: "Light and Dark Mode Token Generation in Substrate"
+sidebarTitle: "Light & Dark"
+description: "Substrate derives light and dark tokens from the same color intent. No parallel ramps, no separate token files — one config, two fully-accessible themes."
+---
+
+Light and dark mode are the two baseline themes in Substrate. Every color intent you define in your brand config automatically produces both a light-mode and a dark-mode token set. There are no parallel ramp files to maintain, no manual light/dark overrides to write, and no risk of the two sets drifting out of sync — Substrate derives both from the same source of truth and verifies APCA contrast in each.
+
+## How intent maps to two token sets
+
+When Substrate reads a color intent from your config, it runs APCA contrast solving twice: once with a light-mode surface as the background, and once with a dark-mode surface. The result is a pair of `oklch()` values that share your brand's hue and chroma but land at the lightness required to meet the contrast target on their respective surface.
+
+This means you never specify "the dark-mode value of primary." You specify what primary *means* — its hue, its chroma, its contrast role — and Substrate derives the right lightness for each mode.
+
+## Multi-stop intent: shifting hue and chroma between modes
+
+Some colors benefit from a subtle hue or chroma shift between light and dark. A neutral, for example, might read cleanest as a slightly cool blue-gray in light mode but feel more comfortable as a slightly warm gray in dark mode. Substrate supports this with a multi-stop intent: define both ends of the shift, and the system interpolates across the lightness range in each mode.
+
+```json
+"neutral": {
+  "light": { "hue": 210, "chroma": 0.02 },
+  "dark":  { "hue": 220, "chroma": 0.04 }
+}
+```
+
+Substrate interpolates between these values as it walks the lightness scale for each mode and uses APCA to pick the correct lightness for each surface role. The result is a neutral ramp that feels intentional in both contexts rather than mechanically inverted.
+
+<Note>
+  You are not required to define both ends. If you supply a single hue and chroma, Substrate uses those values in both modes and only recalculates lightness. Multi-stop intent is opt-in for cases where the color needs to breathe differently across modes.
+</Note>
+
+## Generated CSS output
+
+Given the multi-stop neutral config above, Substrate produces output similar to the following. Lightness values are solved by APCA — you do not set them in config.
+
+```css
+:root {
+  --color-surface:           oklch(99% 0.005 210);
+  --color-surface-secondary: oklch(96% 0.01  210);
+  --color-on-surface:        oklch(12% 0.02  210);
+}
+
+[data-theme="dark"] {
+  --color-surface:           oklch(8%  0.02  220);
+  --color-surface-secondary: oklch(12% 0.02  220);
+  --color-on-surface:        oklch(92% 0.01  220);
+}
+```
+
+Notice that `--color-on-surface` flips from a near-black (12% lightness) in light mode to a near-white (92% lightness) in dark mode — not because you declared it, but because APCA solving found those values to be the minimum lightness that clears the target contrast on their respective surfaces.
+
+## Automatic OS preference detection
+
+Substrate's CSS output includes an `@media (prefers-color-scheme: dark)` block so the dark theme activates automatically when the user's operating system is in dark mode, with no JavaScript required.
+
+```css
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --color-surface:           oklch(8%  0.02  220);
+    --color-surface-secondary: oklch(12% 0.02  220);
+    --color-on-surface:        oklch(92% 0.01  220);
+    /* ... all dark token values ... */
+  }
+}
+```
+
+The `:root:not([data-theme])` selector ensures the media query only applies when no explicit theme has been set. As soon as you write a `data-theme` attribute to the element, the explicit value takes over.
+
+<Tip>
+  You can override the OS-detected theme by setting `data-theme` explicitly on any element — useful for theme-switcher controls. Write `data-theme="light"` to `<html>` to lock the interface to light mode regardless of the user's system preference, or write `data-theme="dark"` to force dark. The attribute can also be scoped to a subtree, so a documentation site, for example, can render code examples in dark mode while the surrounding UI follows the OS preference.
+</Tip>
+
+## Checking contrast in generated tokens
+
+Every token pair in Substrate's output has a corresponding APCA Lc value in the generated token manifest. You can inspect these values to verify that a token meets your project's minimum contrast requirement.
+
+<Steps>
+  <Step title="Build your token output">
+    Run the Substrate CLI to generate your token files. The manifest is written alongside the CSS output.
+
+    ```bash
+    substrate build
+    ```
+  </Step>
+  <Step title="Open the token manifest">
+    The manifest is a JSON file located at the output path you configured. Each token entry includes a `contrast` field:
+
+    ```json
+    {
+      "token": "--color-on-surface",
+      "mode": "dark",
+      "value": "oklch(92% 0.01 220)",
+      "background": "--color-surface",
+      "contrast": { "apca": 91.4 }
+    }
+    ```
+  </Step>
+  <Step title="Audit against your target">
+    Compare the `apca` value against your project's minimum. Substrate defaults to Lc 60 for body text and Lc 45 for large text and UI components, matching the APCA Bronze conformance level. Raise these targets in your config if your project requires stricter compliance.
+  </Step>
+</Steps>

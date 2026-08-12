@@ -1,0 +1,68 @@
+---
+title: "Configuring Motion and Animation Tokens in Substrate"
+sidebarTitle: "Motion"
+description: "Define your motion vocabulary with a single motion-unit. Substrate derives duration and easing tokens, and respects prefers-reduced-motion automatically."
+---
+
+Substrate gives you a complete motion vocabulary from a single parameter. Set `motion-unit` to your desired base animation duration and the system derives every duration token — from instant to slow — as a named multiple of that base. Easing curves are included out of the box, and `prefers-reduced-motion` overrides are always emitted, so accessibility is baked in from the start rather than bolted on later.
+
+## Motion config
+
+```json
+"motion-unit": "100ms"
+```
+
+`motion-unit` sets the base duration from which all other timing tokens are derived. A value of `"100ms"` is a solid starting point for most UIs — fast enough to feel snappy, slow enough for transitions to be perceptible. Defaults to `"100ms"`.
+
+## Generated motion tokens
+
+```css
+:root {
+  --motion-instant: 0ms;
+  --motion-fast: 100ms;    /* 1 unit */
+  --motion-normal: 200ms;  /* 2 units */
+  --motion-slow: 300ms;    /* 3 units */
+  --motion-slower: 500ms;  /* 5 units */
+
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-normal: 0ms;
+    --motion-slow: 0ms;
+    --motion-slower: 0ms;
+  }
+}
+```
+
+## Duration tokens
+
+| Token | Multiplier | Default value | Intended use |
+|---|---|---|---|
+| `--motion-instant` | — | `0ms` | State changes that should never animate |
+| `--motion-fast` | 1× | `100ms` | Micro-interactions: hover states, toggles, tooltips |
+| `--motion-normal` | 2× | `200ms` | Standard transitions: panel slides, modal entrances |
+| `--motion-slow` | 3× | `300ms` | Deliberate transitions: page changes, large reveals |
+| `--motion-slower` | 5× | `500ms` | Choreographed sequences, loading states, emphasis |
+
+## Easing tokens
+
+| Token | Curve | Intended use |
+|---|---|---|
+| `--ease-standard` | `cubic-bezier(0.4, 0, 0.2, 1)` | General-purpose transitions that enter and exit the frame |
+| `--ease-enter` | `cubic-bezier(0, 0, 0.2, 1)` | Elements entering the viewport — decelerates to rest |
+| `--ease-exit` | `cubic-bezier(0.4, 0, 1, 1)` | Elements leaving the viewport — accelerates out |
+| `--ease-spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Playful overshoot for confirmations and delight moments |
+
+<Note>
+  Substrate always emits `prefers-reduced-motion: reduce` overrides — this is not optional or configurable. Any user who has enabled reduced motion at the OS level automatically receives instant (`0ms`) transitions for all duration tokens except `--motion-instant`, which remains `0ms` in all contexts. Your components never need to implement this check themselves.
+</Note>
+
+<Tip>
+  Use `--motion-instant` for state changes that should never animate regardless of the user's motion preference — focus rings are the canonical example. A focus ring that fades in, even briefly, can make keyboard navigation harder to track. Reach for `--motion-instant` any time an animation would impair clarity rather than enhance it.
+</Tip>

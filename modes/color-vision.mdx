@@ -1,0 +1,116 @@
+---
+title: "Color Vision Deficiency Presets in Substrate"
+sidebarTitle: "Color Vision"
+description: "Substrate ships CVD presets for protanopia, deuteranopia, and tritanopia. Enable them with a single config flag to serve the 300+ million users with color vision differences."
+---
+
+Approximately 8% of males and 0.5% of females have some form of color vision deficiency (CVD) — an estimated 300 million people worldwide. For those users, semantic color roles like `error` (typically red) and `success` (typically green) may be indistinguishable from each other, breaking the meaning your interface is trying to communicate. Substrate addresses this with built-in CVD presets: enable them in your config and Substrate generates a complete alternate token set where semantic colors are shifted to hues that remain distinguishable under each deficiency, with APCA contrast maintained throughout.
+
+## Supported presets
+
+| Preset | Type | Affects |
+|---|---|---|
+| `protanopia` | Red-blindness | Red/green distinction |
+| `deuteranopia` | Green-blindness | Red/green distinction |
+| `tritanopia` | Blue-blindness | Blue/yellow distinction |
+
+Protanopia and deuteranopia are by far the most common forms, collectively affecting roughly 7–8% of males. Tritanopia is rarer but still meaningful at scale. All three are first-class presets in Substrate.
+
+## Enabling CVD presets
+
+Add a `cvd` array to your brand config and list the presets you want to generate. Each entry produces an independent token set under its own `data-theme` value.
+
+```json
+{
+  "brand": "acme",
+  "cvd": ["protanopia", "deuteranopia"]
+}
+```
+
+To enable all three presets, include all values:
+
+```json
+{
+  "brand": "acme",
+  "cvd": ["protanopia", "deuteranopia", "tritanopia"]
+}
+```
+
+<Tip>
+  Enable all three CVD presets in your config. The additional CSS output size is minimal — each preset adds one scoped `[data-theme]` block — and it ensures your system serves users you may not know about. There is no performance cost at runtime; the browser only parses the block matching the active `data-theme`.
+</Tip>
+
+## What the system generates
+
+For each enabled preset, Substrate shifts the hue of semantic color roles — `error`, `warning`, `success`, `info` — to values that remain perceptually distinct under that deficiency. Lightness and chroma are then re-solved with APCA to maintain the same contrast targets as the standard theme.
+
+Applying a preset looks the same as applying any other mode:
+
+```html
+<html data-theme="protanopia">
+```
+
+The generated token block shifts `error` away from red (hue 0) toward amber (hue 40) and shifts `success` away from green (hue 145) toward cyan (hue 200), ensuring the two roles read as different colors to a user who cannot distinguish red from green.
+
+```css
+[data-theme="protanopia"] {
+  /* Error shifts from red hue 0 to amber hue 40 */
+  --color-error:    oklch(52% 0.22 40);
+  --color-on-error: oklch(98% 0.01 40);
+
+  /* Success shifts from green hue 145 to cyan hue 200 */
+  --color-success:    oklch(48% 0.20 200);
+  --color-on-success: oklch(98% 0.01 200);
+}
+```
+
+Your brand's primary, secondary, and neutral tokens are not modified by CVD presets — only the semantic roles that encode meaning through hue are shifted. If your primary color happens to be red or green, consider reviewing it manually for CVD contexts; Substrate flags this in the audit output.
+
+## Combining CVD presets with other modes
+
+CVD presets are composable with the five standard display modes. If a user prefers dark mode *and* has protanopia, you can serve both by nesting `data-theme` attributes:
+
+```html
+<html data-theme="dark">
+  <div data-theme="protanopia">
+    <!-- tokens here resolve the protanopia overrides on top of the dark base -->
+  </div>
+</html>
+```
+
+<Note>
+  Full mode × CVD composition — for example, a single `data-theme="dark-protanopia"` compound value — is on the Substrate roadmap. In the current release, nest `data-theme` attributes as shown above to achieve the same result. The cascade resolves correctly because CVD presets only override semantic role tokens, leaving the structural surface and foreground tokens from the outer dark theme intact.
+</Note>
+
+## Detecting CVD preference automatically
+
+There is currently no CSS media query equivalent to `prefers-color-scheme` for color vision deficiency — the browser does not expose this information. CVD mode selection requires an explicit user choice in your application's settings.
+
+<Steps>
+  <Step title="Add a CVD preference setting to your app">
+    Provide a selector in your accessibility or display settings that lets users choose a CVD preset. Label options plainly: "Optimised for red-green color vision difference" is more useful than "Protanopia mode."
+  </Step>
+  <Step title="Persist the preference">
+    Store the user's selection in `localStorage` or your user profile store so it persists across sessions.
+
+    ```js
+    localStorage.setItem('cvd-preset', 'protanopia');
+    ```
+  </Step>
+  <Step title="Apply the data-theme attribute">
+    On page load, read the stored preference and write it to `data-theme` on `<html>` before the first paint to avoid a flash of unstyled content.
+
+    ```js
+    const cvd = localStorage.getItem('cvd-preset');
+    if (cvd) {
+      document.documentElement.setAttribute('data-theme', cvd);
+    }
+    ```
+  </Step>
+</Steps>
+
+## Cultural color considerations
+
+<Note>
+  Color meaning is not universal. In several East Asian cultural contexts, red signals good fortune and prosperity rather than danger or error — the opposite of its conventional meaning in Western UI design. If your product serves users in those markets, consider shifting your `error` semantic role toward orange even without a CVD preset. Substrate's hue override on semantic roles supports this directly in your brand config, and the APCA recalculation ensures the shifted hue still meets your contrast targets.
+</Note>

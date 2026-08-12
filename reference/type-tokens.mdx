@@ -1,0 +1,55 @@
+---
+title: "Typography Token Reference: Type Scale CSS Variables"
+sidebarTitle: "Type Tokens"
+description: "Complete reference for Substrate's generated typography tokens — size scale, font family, line height, and letter spacing variables."
+---
+
+Substrate derives your entire type scale from two config values: `type-size-unit` (the base font size) and `scale-ratio` (the modular scale multiplier). Every `--type-size-*` token is computed by raising the ratio to a positive or negative integer power and multiplying by the base. The result is a mathematically harmonious scale where every step has a consistent visual relationship to its neighbors — no eyeballing required. The examples in the table below assume the defaults: a 16px base and a 1.25 Major Third ratio.
+
+## Type Size Tokens
+
+| Token | Scale step | Example (ratio 1.25, base 16px) |
+|---|---|---|
+| `--type-size-xs` | base ÷ ratio² | ~10.24px |
+| `--type-size-sm` | base ÷ ratio | ~12.8px |
+| `--type-size-md` | base | 16px |
+| `--type-size-lg` | base × ratio | 20px |
+| `--type-size-xl` | base × ratio² | 25px |
+| `--type-size-2xl` | base × ratio³ | 31.25px |
+| `--type-size-3xl` | base × ratio⁴ | ~39px |
+
+Change `scale-ratio` in your brand config to shift the scale's expressiveness. A 1.2 ratio produces a compact, disciplined scale; a 1.5 ratio produces an expressive, editorial scale.
+
+## Font Family Tokens
+
+Substrate emits font-family tokens for the two stacks it manages. Override the values by supplying a `font` object in your brand config.
+
+| Token | Description |
+|---|---|
+| `--font-sans` | Primary sans-serif font stack |
+| `--font-mono` | Monospace font stack |
+
+## Line Height Tokens
+
+Line height tokens are fixed values, not computed from the scale. They are sized for their intended text role.
+
+| Token | Value | Use |
+|---|---|---|
+| `--line-height-tight` | 1.2 | Headings |
+| `--line-height-normal` | 1.5 | Body text |
+| `--line-height-loose` | 1.75 | Small print, captions |
+
+## Letter Spacing Tokens
+
+Letter spacing tokens use `em` units so they scale proportionally with font size.
+
+| Token | Value | Use |
+|---|---|---|
+| `--letter-spacing-tight` | -0.02em | Large headings |
+| `--letter-spacing-normal` | 0 | Body |
+| `--letter-spacing-wide` | 0.05em | Labels, badges |
+| `--letter-spacing-wider` | 0.1em | All-caps labels |
+
+<Tip>
+When you use `--letter-spacing-wider` on all-caps labels, pair it with `--type-size-xs` or `--type-size-sm` for the best legibility. Wide tracking on large text tends to feel disconnected rather than refined.
+</Tip>
