@@ -9,17 +9,15 @@ The `substrate` CLI is a **consumer-side onboarding and delivery tool**. It wire
 Six verbs: `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact`, plus `--version`. Every verb except `init` answers `--help`.
 
 <Warning>
-  **Never run `npx substrate`.** The CLI package (`@unknown-creatives/substrate`) is not yet published to npm, and a bare `npx substrate` fetches an unrelated third-party package that happens to own the name. Run the bin from a Substrate checkout that has had `npm ci`:
+  The package is `@unknown-creatives/substrate`; a bare `npx substrate` still installs an unrelated third-party package — always use the scoped name:
 
   ```bash
-  # One-off:
-  node "$SUBSTRATE_REPO/packages/cli/bin/substrate-init.js" init --dry-run --platform claude-code
-
-  # Session alias:
-  substrate() { node <substrate-checkout>/packages/cli/bin/substrate-init.js "$@"; }
+  npx @unknown-creatives/substrate init --dry-run --platform claude-code
   ```
 
-  The bin must stay inside its checkout — its dependencies resolve from the checkout root, so copying `bin/` out standalone fails with `ERR_MODULE_NOT_FOUND`. Requires Node ≥ 22. Every failure prints a plain `substrate: <message>` with no stack trace; set `SUBSTRATE_DEBUG=1` to see one.
+  The published CLI version always equals the engine release version, so `npx @unknown-creatives/substrate@<v>` means "the CLI released alongside engine `<v>`". Requires Node ≥ 22. Every failure prints a plain `substrate: <message>` with no stack trace; set `SUBSTRATE_DEBUG=1` to see one.
+
+  Working on Substrate itself, run the bin from your checkout instead (after `npm ci` there): `substrate() { node <substrate-checkout>/packages/cli/bin/substrate-init.js "$@"; }`
 </Warning>
 
 ## How the CLI finds the engine

@@ -7,16 +7,17 @@ description: "Vendor the Substrate engine, run substrate init, wire the three im
 This guide walks you through the **vendored-checkout** integration path: getting the Substrate engine into your repo, running `substrate init`, wiring the three public import aliases, and initializing the runtime so your app computes APCA-solved token values. By the end, your app renders through the Substrate cascade and you've verified it.
 
 <Warning>
-  Substrate's CLI package (`@unknown-creatives/substrate`) is **not yet published to npm**, and a bare `npx substrate` installs an **unrelated third-party package** of the same name. Never use `npx substrate`. Run the CLI from a Substrate checkout, as shown below.
+  The package is `@unknown-creatives/substrate`; a bare `npx substrate` still installs an unrelated third-party package — always use the scoped name.
 </Warning>
 
 ## 1. Obtain Substrate
 
-Clone the Substrate checkout you received from Unknown Creatives **outside** your project, install its dependencies (the CLI needs them; your project never does), then vendor the engine into your repo:
+The CLI comes from npm: `npx @unknown-creatives/substrate <cmd>`. The **engine** is delivered separately and is never published to npm — clone the Substrate checkout you received from Unknown Creatives **outside** your project, then vendor the engine into your repo:
 
 ```bash
-# Clone Substrate outside your project and install its deps
-git clone <substrate-repo-url> ~/substrate && (cd ~/substrate && npm ci)
+# Clone Substrate outside your project. No install step needed —
+# the published CLI brings its own dependencies.
+git clone <substrate-repo-url> ~/substrate
 SUBSTRATE_REPO=~/substrate
 
 # Vendor the engine: sealed engine dirs go to substrate/engine/,
@@ -34,20 +35,24 @@ None of these directories need `node_modules` or any install step inside your re
 Before running `init`, confirm the layout is detectable (`--dry-run` writes nothing):
 
 ```bash
-node "$SUBSTRATE_REPO/packages/cli/bin/substrate-init.js" init --dry-run --platform claude-code
+npx @unknown-creatives/substrate init --dry-run --platform claude-code
 ```
 
 The first line must read `Found Substrate (client): substrate/engine`.
 
 ## 2. Run `substrate init`
 
-The CLI must run from the checkout (its dependencies resolve from the checkout's `node_modules`). A shell function makes the rest of this guide's `substrate <cmd>` spellings literal:
+From your project root:
 
 ```bash
-substrate() { node "$SUBSTRATE_REPO/packages/cli/bin/substrate-init.js" "$@"; }
-
-substrate init
+npx @unknown-creatives/substrate init
 ```
+
+Every bare `substrate <cmd>` spelling in the rest of this guide means that scoped npx invocation.
+
+<Note>
+  Working on Substrate itself? Run the bin from your checkout instead — after `(cd "$SUBSTRATE_REPO" && npm ci)`, a shell function makes the bare spelling literal: `substrate() { node "$SUBSTRATE_REPO/packages/cli/bin/substrate-init.js" "$@"; }`
+</Note>
 
 `init` prints the Substrate it found, lets you pick which AI tools to configure, links the Substrate skills and the Bloom agent into each selected tool, scaffolds the client overlays, writes `.substrate/state.yaml`, and sets up the import aliases. Non-interactive alternatives:
 
