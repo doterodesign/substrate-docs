@@ -47,3 +47,27 @@
   symbols get extraction added to the generator instead (precedent:
   SubstrateSurface web component scan). It is a flat JSON array — MERGE,
   never overwrite (a sub-agent once clobbered it).
+
+## Corrected claims (feedback 2026-08-12 — do not reintroduce)
+- data-mode is NOT just an intent-role selector. It is the composable
+  per-element mode list (kernel/system/mode-resolver.ts): intent roles,
+  component roles (card/panel/inset), component states and modes, brand
+  preset LEVEL names (discrete match beats slider interpolation), materials,
+  and the fluid gate. The resolver excludes scheme/contrastFactor from token
+  effects, so preset tokens apply property deltas only — the axes stay
+  preference-owned (that half of the old warning was right). Root cause of
+  the error: the audit only surveyed generated color CSS, never the mode
+  resolver.
+- danger/error: SYSTEM_INTENTS (kernel/system/config.ts) is explicitly a
+  "convention baseline", NOT a contract — only brand/neutral are required.
+  Never write that the destructive intent "is danger, not error"; a brand
+  may use any name. Root cause: over-correction from the fabrication-era
+  --color-error cleanup.
+- initializeSubstrate() (platforms/web/runtime/initialize.ts, exported from
+  the barrel) wraps the whole three-call startup; `substrate setup --apply`
+  GENERATES src/substrate.setup.ts (css import + initializeSubstrate()) and
+  wires the app entry. Don't present runtime wiring as purely manual. The
+  baked no-JS floor follows OS prefers-color-scheme/contrast with zero JS;
+  the apply* helpers are only for keeping the LIVE vector on OS signals.
+- Writing "data-theme" literally anywhere (even to deny it) trips the gate;
+  say "theme attribute".
