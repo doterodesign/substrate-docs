@@ -1,10 +1,18 @@
 ---
-title: "Integration: The Alias Contract, the Runtime, and Scoped Surfaces"
-sidebarTitle: "Integration"
-description: "How client code reaches Substrate: three public import aliases with an engine-swap guarantee, the three-call runtime sequence, the Surface component, and the cascade opt-in."
+title: "Runtime & Imports: Wiring Your App to Substrate"
+sidebarTitle: "Runtime & Imports"
+description: "The required wiring for every web integration: three public import aliases with an engine-swap guarantee, the three-call runtime sequence that drives the solver, and the OS preference helpers."
 ---
 
-This page is the reference for how your application code connects to Substrate at runtime — the import boundary, the call sequence that drives the solver, the one React component Substrate ships, and how elements opt into the cascade.
+**Every web integration must do what's on this page.** Substrate solves color at runtime, so an app that skips the wiring here renders no solved values at all. The full picture is three required pieces and one situational one:
+
+| Step | Necessity | Where |
+|---|---|---|
+| Import through the three public aliases | Required | This page |
+| Load the CSS barrel + make the three runtime calls | Required | This page |
+| Opt elements into the cascade with `data-ucs` / `data-mode` | Required | [Markup Opt-In](/markup) |
+| Scope nested surfaces with the Surface component | Required when surfaces nest | [Surface Component](/surface-component) |
+| Follow OS preferences with the runtime helpers | Recommended | This page |
 
 For the setup steps that get Substrate into your repo in the first place — vendoring the engine, running `substrate init`, wiring bundler configs — see the [Quickstart](/quickstart).
 
@@ -31,7 +39,7 @@ Client code imports Substrate through exactly three aliases. This is the entire 
 Two patterns look plausible and are not supported:
 
 - **`@substrate/engine/*`** (with the wildcard) reaches deep engine subpaths. It exists as an escape hatch for Substrate's own demo, is classified internal, and must not be copied into client code.
-- **Relative paths into engine internals**, such as `../../../kernel/color/surface`, couple your code to one engine layout. This is exactly the dependency the Surface component was refactored to remove.
+- **Relative paths into engine internals**, such as `../../../kernel/color/surface`, couple your code to one engine layout. This is exactly the dependency the [Surface component](/surface-component) was refactored to remove.
 
 The rule in one line: reach all engine behavior through `@substrate/engine`, keep `./` imports to your own colocated files, and use nothing else to leave your directory. If a seam you need is missing from the barrel, the fix is to add it to the barrel rather than to route around it.
 
@@ -74,6 +82,8 @@ syncPrefsToCssVars(prefs);
 updateAllVars(brand, prefs);
 ```
 
+With the values on `:root`, elements consume them by opting in — that contract is small enough to hold in your head and lives on its own page: [Markup Opt-In](/markup).
+
 ### Following OS preferences
 
 The runtime ships helpers that read OS media queries into the vector and keep listening. Each returns a cleanup function that detaches its listeners:
@@ -104,81 +114,15 @@ cleanups.forEach((stop) => stop());
 
 ---
 
-## Opting into the cascade
-
-Two attributes connect an element to the solved values:
-
-```html
-<div data-ucs data-mode="brand">Solved brand surface</div>
-<div data-ucs data-mode="danger">Solved danger surface</div>
-```
-
-**`data-ucs`** opts the element into the Substrate cascade. It takes no value.
-
-**`data-mode`** selects one or more **semantic intent roles**. It is matched with `~=` against a space-separated token list, so an element can carry several at once — `data-mode="neutral card"` is a neutral-intent card. The shipped system roles are `brand`, `neutral`, `danger`, `warning`, `success`, `info`, and `beta`, with brand-specific roles generated alongside them.
-
-<Warning>
-  `data-mode` is a role selector, not a theme switch. It does not change light/dark or contrast — those are preference axes on the vector. There is no theme attribute in Substrate at all.
-</Warning>
-
-The remaining runtime-written attributes are `data-brand` (set by `syncBrandToCssVars`), `data-cvd-achromat` (toggled by `syncPrefsToCssVars` for pattern overlays), and `data-cvd-sim` (set only by the CVD simulation devtool).
-
----
-
-## The Surface component
-
-`Surface` is the **only React component Substrate ships**, and it exists for a specific reason: a nested surface needs its foregrounds re-solved against *its own* background rather than the page's, and that re-solve can only happen in JavaScript.
-
-The root-level `updateAllVars` solves against the page surface. Put a card with a distinctly different background inside that page and the inherited `--ucs-*-fg-l` values are solved against the wrong thing — contrast that was correct at the root is no longer correct locally. `Surface` fixes this by computing scoped custom properties and applying them as inline styles, which override `:root` for everything inside.
-
-```tsx
-import { SubstrateSurface } from '@substrate/components/surface/web/surface';
-
-<SubstrateSurface brand={brand} prefs={prefs} elevation="elevated" role="card">
-  <h2>Correctly solved against this card, not the page</h2>
-  <p>Descendants inherit the scoped primitives.</p>
-</SubstrateSurface>
-```
-
-Props: `brand` and `prefs` are required; `elevation` selects the surface derivation (default `elevated`); `role` maps to the `data-mode` role and accepts `card`, `panel`, `inset`, or `none` (default `card`); `surface` overrides the computed color outright; and `pipeline` lets you pass a prepared pipeline in. Standard `div` attributes pass through.
-
-Internally it derives its surface, calls `computeScopedIntentVars`, and renders a `div` carrying `data-ucs`, a `data-mode` role, and the scoped variables as inline styles.
-
-### Sharing the prepared pipeline
-
-The warmth and CVD transforms depend only on brand and preferences, not on the surface, so they can be computed once and reused across every surface on the page. The component caches the last prepared pipeline automatically. When you're rendering many surfaces and want explicit control, prepare it yourself and pass it down:
-
-```ts
-import { preparePipeline } from '@substrate/engine';
-
-const pipeline = preparePipeline(brand, prefs);
-// pass as the `pipeline` prop to each SubstrateSurface
-```
-
-### Component ownership
-
-`Surface` is a **client-owned catalog asset**, not an engine-owned runtime component. Once scaffolded into your repo it is yours: edit it, restyle it, fork it. Substrate supplies the first copy and records provenance, but the file belongs to you.
-
-The engine-owned boundary is `@substrate/engine` — kernel code, runtime helpers, config loading, generators, and validators. Components consume engine behavior only through that public barrel. This is why `Surface` imports `baseSurface`, `deriveSurface`, `computeScopedIntentVars`, and `preparePipeline` from `@substrate/engine` rather than reaching into kernel paths, and it's the same contract your own components should follow.
-
-Scaffold more catalog content as you need it:
-
-```bash
-substrate add --list
-substrate add components/badge --generate-command "npm run generate"
-```
-
----
-
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Setup from zero: vendoring the engine, running init, and verifying the wiring.
+  <Card title="Markup Opt-In" icon="code" href="/markup">
+    Required next step: data-ucs and data-mode, the two attributes every consuming element carries.
+  </Card>
+  <Card title="Surface Component" icon="layer-group" href="/surface-component">
+    Required when surfaces nest: re-solving contrast against a local background.
   </Card>
   <Card title="Web" icon="css3" href="/platforms/web">
     The generated CSS layers, the custom property namespaces, and the calc-composed model.
-  </Card>
-  <Card title="Core Concepts" icon="lightbulb" href="/core-concepts">
-    The runtime-solver mental model behind all of this.
   </Card>
   <Card title="Modes Overview" icon="sliders" href="/modes/overview">
     The preference vector the runtime call sequence is driving.

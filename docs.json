@@ -35,8 +35,15 @@
             "pages": [
               "introduction",
               "quickstart",
-              "integration",
               "core-concepts"
+            ]
+          },
+          {
+            "group": "Integrate",
+            "pages": [
+              "integration",
+              "markup",
+              "surface-component"
             ]
           },
           {

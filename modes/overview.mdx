@@ -101,7 +101,7 @@ syncPrefsToCssVars(prefs);   // writes --scheme, --contrast-factor, --density, �
 updateAllVars(brand, prefs); // re-solves APCA, writes the per-intent --ucs-* primitives
 ```
 
-Nothing about that call sequence is specific to a preset — an arbitrary `scheme` of `0.42` works identically. Full setup lives in the [Quickstart](/quickstart) and the [Integration](/integration) page.
+Nothing about that call sequence is specific to a preset — an arbitrary `scheme` of `0.42` works identically. Full setup lives in the [Quickstart](/quickstart) and the [Runtime & Imports](/integration) page.
 
 Elements opt into the resulting cascade with `data-ucs`, and pick an intent role with `data-mode`:
 
@@ -154,7 +154,10 @@ The runtime also reads OS signals directly: `prefers-reduced-motion` drops `moti
   <Card title="Color Vision" icon="eye" href="/modes/color-vision">
     The four CVD types, continuous severity, hue redistribution, and the kernel's own caveats.
   </Card>
-  <Card title="Integration" icon="plug" href="/integration">
-    The runtime call sequence, the three import aliases, and the Surface component.
+  <Card title="Runtime & Imports" icon="plug" href="/integration">
+    The runtime call sequence and the three import aliases this page's vector drives.
+  </Card>
+  <Card title="Surface Component" icon="layer-group" href="/surface-component">
+    Re-solving contrast locally when surfaces nest inside surfaces.
   </Card>
 </CardGroup>

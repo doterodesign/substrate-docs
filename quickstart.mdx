@@ -118,7 +118,7 @@ syncPrefsToCssVars(prefs);   // scheme, contrast, density vars
 updateAllVars(brand, prefs); // runs the APCA solver, writes per-intent --ucs-* to :root
 ```
 
-Any element then opts into the cascade with `data-ucs` plus a `data-mode` role:
+Any element then opts into the cascade with `data-ucs` plus a `data-mode` role (the full attribute contract is on [Markup Opt-In](/markup)):
 
 ```html
 <div data-ucs data-mode="brand">Solved brand surface</div>
@@ -177,6 +177,12 @@ substrate add components/badge --generate-command "npm run generate"
 ---
 
 <CardGroup cols={2}>
+  <Card title="Runtime & Imports" icon="plug" href="/integration">
+    The required wiring in depth: the alias contract, the three-call sequence, and the OS preference helpers.
+  </Card>
+  <Card title="Surface Component" icon="layer-group" href="/surface-component">
+    Required when surfaces nest — cards, panels, insets — so contrast is re-solved against the local background.
+  </Card>
   <Card title="Core Concepts" icon="lightbulb" href="/core-concepts">
     The runtime-solver mental model: intents, the preference vector, APCA solving per surface, and the cascade.
   </Card>

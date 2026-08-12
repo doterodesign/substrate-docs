@@ -1,0 +1,43 @@
+---
+title: "Markup Opt-In: data-ucs and data-mode"
+sidebarTitle: "Markup Opt-In"
+description: "Every element that uses Substrate's solved colors must opt into the cascade with data-ucs and select an intent role with data-mode. This page is the contract for those two attributes."
+---
+
+**This step is required.** The [runtime call sequence](/integration#the-runtime-call-sequence) writes solved values to `:root`, but no element picks them up automatically — each one opts in. Two attributes are the entire contract:
+
+```html
+<div data-ucs data-mode="brand">Solved brand surface</div>
+<div data-ucs data-mode="danger">Solved danger surface</div>
+```
+
+**`data-ucs`** opts the element into the Substrate cascade. It takes no value.
+
+**`data-mode`** selects one or more **semantic intent roles**. It is matched with `~=` against a space-separated token list, so an element can carry several at once — `data-mode="neutral card"` is a neutral-intent card. The shipped system roles are `brand`, `neutral`, `danger`, `warning`, `success`, `info`, and `beta`, with brand-specific roles generated alongside them.
+
+<Warning>
+  `data-mode` is a role selector, not a theme switch. It does not change light/dark or contrast — those are preference axes on the vector. There is no theme attribute in Substrate at all.
+</Warning>
+
+## Attributes the runtime writes
+
+You author `data-ucs` and `data-mode`; the runtime owns the rest:
+
+| Attribute | Written by | Role |
+|---|---|---|
+| `data-brand` | `syncBrandToCssVars` | Identifies the active brand on the root — what generated per-brand CSS scopes against |
+| `data-cvd-achromat` | `syncPrefsToCssVars` | Activates the achromat pattern overlays |
+| `data-cvd-sim` | CVD simulation devtool only | Never set it in production markup |
+
+## Styling with the solved values
+
+Your own CSS composes from the same primitives the attributes activate — see [Web](/platforms/web#using-it-in-your-css) for the `calc()` composition patterns, and the [Color Token Reference](/reference/color-tokens) for every variable an intent produces.
+
+<CardGroup cols={2}>
+  <Card title="Runtime & Imports" icon="plug" href="/integration">
+    The required call sequence that writes the values these attributes consume.
+  </Card>
+  <Card title="Surface Component" icon="layer-group" href="/surface-component">
+    Required when a surface nests inside another — re-solves contrast locally.
+  </Card>
+</CardGroup>

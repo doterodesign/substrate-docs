@@ -120,7 +120,7 @@ syncPrefsToCssVars(prefs);   // --scheme, --contrast-factor, --density, …
 updateAllVars(brand, prefs); // solves APCA, writes the --ucs-* primitives to :root
 ```
 
-Any preference change repeats the last two calls. Full detail, including the Surface component and the alias contract, is on the [Integration](/integration) page.
+Any preference change repeats the last two calls. Full detail on the call sequence and the alias contract is on the [Runtime & Imports](/integration) page; nested surfaces need the [Surface component](/surface-component).
 
 ---
 
@@ -162,8 +162,11 @@ npm run generate:tokens:compose
 ---
 
 <CardGroup cols={2}>
-  <Card title="Integration" icon="plug" href="/integration">
-    The runtime call sequence, the three import aliases, and the Surface component.
+  <Card title="Runtime & Imports" icon="plug" href="/integration">
+    The runtime call sequence and the three import aliases.
+  </Card>
+  <Card title="Surface Component" icon="layer-group" href="/surface-component">
+    Re-solving contrast against a nested surface's own background.
   </Card>
   <Card title="iOS / Swift" icon="apple" href="/platforms/ios-swift">
     Per-mode Display P3 token files and the SubstrateKernel package.

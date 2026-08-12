@@ -1,0 +1,68 @@
+---
+title: "The Surface Component"
+sidebarTitle: "Surface Component"
+description: "SubstrateSurface re-solves foreground contrast against a nested surface's own background — required wherever a card, panel, or inset sits on a background different from the page."
+---
+
+`Surface` is the **only React component Substrate ships**, and you need it in one specific — and very common — situation: **any time a surface with its own background nests inside another surface.** Cards on a page, panels in a sidebar, insets in a card. If your UI has none of those, you can skip this component; if it has any, this page is required reading, because without it the contrast inside those regions is quietly wrong.
+
+## The problem it solves
+
+The root-level [`updateAllVars`](/integration#the-runtime-call-sequence) call solves every foreground against the *page* surface. Put a card with a distinctly different background inside that page, and the inherited `--ucs-*-fg-l` values are still solved against the page — contrast that was correct at the root is no longer correct locally. A nested surface needs its foregrounds re-solved against *its own* background, and that re-solve can only happen in JavaScript.
+
+`Surface` does exactly that: it computes scoped custom properties for its own background and applies them as inline styles, which override `:root` for everything inside.
+
+```tsx
+import { SubstrateSurface } from '@substrate/components/surface/web/surface';
+
+<SubstrateSurface brand={brand} prefs={prefs} elevation="elevated" role="card">
+  <h2>Correctly solved against this card, not the page</h2>
+  <p>Descendants inherit the scoped primitives.</p>
+</SubstrateSurface>
+```
+
+## Props
+
+| Prop | Required | Default | Meaning |
+|---|---|---|---|
+| `brand` | yes | — | The active brand object |
+| `prefs` | yes | — | The current preference vector |
+| `elevation` | no | `elevated` | Which surface derivation to apply |
+| `role` | no | `card` | The `data-mode` role: `card`, `panel`, `inset`, or `none` |
+| `surface` | no | — | Overrides the computed surface color outright |
+| `pipeline` | no | — | A prepared pipeline to reuse (see below) |
+
+Standard `div` attributes pass through. Internally the component derives its surface, calls `computeScopedIntentVars`, and renders a `div` carrying `data-ucs`, a `data-mode` role, and the scoped variables as inline styles.
+
+## Sharing the prepared pipeline
+
+The warmth and CVD transforms depend only on brand and preferences, not on the surface, so they can be computed once and reused across every surface on the page. The component caches the last prepared pipeline automatically. When you're rendering many surfaces and want explicit control, prepare it yourself and pass it down:
+
+```ts
+import { preparePipeline } from '@substrate/engine';
+
+const pipeline = preparePipeline(brand, prefs);
+// pass as the `pipeline` prop to each SubstrateSurface
+```
+
+## Component ownership
+
+`Surface` is a **client-owned catalog asset**, not an engine-owned runtime component. Once scaffolded into your repo it is yours: edit it, restyle it, fork it. Substrate supplies the first copy and records provenance, but the file belongs to you.
+
+The engine-owned boundary is `@substrate/engine` — kernel code, runtime helpers, config loading, generators, and validators. Components consume engine behavior only through that public barrel. This is why `Surface` imports `baseSurface`, `deriveSurface`, `computeScopedIntentVars`, and `preparePipeline` from `@substrate/engine` rather than reaching into kernel paths, and it's the same contract your own components should follow.
+
+Scaffold more catalog content as you need it:
+
+```bash
+substrate add --list
+substrate add components/badge --generate-command "npm run generate"
+```
+
+<CardGroup cols={2}>
+  <Card title="Runtime & Imports" icon="plug" href="/integration">
+    The root-level call sequence this component scopes locally.
+  </Card>
+  <Card title="Markup Opt-In" icon="code" href="/markup">
+    The data-ucs and data-mode attributes the rendered div carries.
+  </Card>
+</CardGroup>
