@@ -1,8 +1,16 @@
 {/* Canonical runtime initialization example. Single source — imported wherever
-    the three-call sequence is shown. Narrative home: /integration. */}
+    runtime initialization is shown. Narrative home: /integration. */}
 
 ```ts
 import '@substrate/generated/global/css/index.gen.css';
+import { initializeSubstrate } from '@substrate/engine';
+
+const { brand, preferences } = initializeSubstrate();
+```
+
+`initializeSubstrate()` defaults to the first registry brand and `defaultPreferences()`, accepts `{ brand, preferences }` overrides, and is exactly equivalent to the lower-level sequence:
+
+```ts
 import {
   syncBrandToCssVars, syncPrefsToCssVars, updateAllVars,
   defaultPreferences, BRAND_REGISTRY,

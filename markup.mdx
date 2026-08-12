@@ -12,10 +12,22 @@ import MarkupOptInExample from '/snippets/markup-optin-example.mdx';
 
 **`data-ucs`** opts the element into the Substrate cascade. It takes no value.
 
-**`data-mode`** selects one or more **semantic intent roles**. It is matched with `~=` against a space-separated token list, so an element can carry several at once — `data-mode="neutral card"` is a neutral-intent card. The shipped system roles are `brand`, `neutral`, `danger`, `warning`, `success`, `info`, and `beta`, with brand-specific roles generated alongside them.
+**`data-mode`** is the element's **mode list** — a space-separated set of tokens matched with `~=`, so tokens compose orthogonally: `data-mode="danger card frosted"` is a danger-intent card with a frosted material. One attribute carries the full per-element mode composition:
+
+| Token class | Examples | What it activates |
+|---|---|---|
+| Semantic intent roles | `brand`, `danger`, any custom intent | Points the `--intent-*` indirection at that intent's solved primitives |
+| Component roles | `card`, `panel`, `inset` | Role-scoped component styles — the [Surface component](/surface-component) sets one |
+| Component states | state tokens from a component's config | The generated state-layer rules |
+| Component modes | modes defined in a component's config | That mode's property values and deltas |
+| Brand preset levels | `dark`, `compact`, … (whatever the brand names in `presets`) | That level's **property deltas**, applied discretely instead of slider interpolation |
+| Materials | `frosted`, … (per brand `materials`) | The material's backdrop-filter, alpha, and noise treatment |
+| `fluid` | `fluid` | Gates the fluid type rules |
+
+The conventional intent roles are `brand`, `neutral`, `danger`, `warning`, `success`, `info`, and `beta`, with brand-specific roles generated alongside them; the kernel's mode resolver accumulates every active token's effects in order (system modes first, component modes second).
 
 <Warning>
-  `data-mode` is a role selector, not a theme switch. It does not change light/dark or contrast — those are preference axes on the vector. There is no theme attribute in Substrate at all.
+  One thing `data-mode` does **not** carry: the preference axes themselves. A brand preset token like `dark` applies that level's *property deltas*, but the resolver explicitly excludes `scheme` and `contrast-factor` from token effects — light/dark position and contrast remain preference values on the vector, and there is still no theme attribute in Substrate.
 </Warning>
 
 ## Attributes the runtime writes

@@ -106,7 +106,7 @@ To reprint every block without touching disk, run `substrate init --report-alias
 
 ## 4. First import
 
-Two things run at app startup: load the **generated CSS barrel** once at your app entry (it establishes the full cascade), then initialize the **engine** — the runtime APCA solver, the only JS Substrate requires:
+Two things run at app startup: load the **generated CSS barrel** once at your app entry (it establishes the full cascade), then initialize the **engine** — the runtime APCA solver, the only JS Substrate requires. On the vendored path you add this yourself; on the supervised `substrate setup` path this exact module is generated for you as `src/substrate.setup.ts`:
 
 <RuntimeInitExample />
 

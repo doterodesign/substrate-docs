@@ -65,7 +65,7 @@ What does exist is a convention. Across the engine's bundled demo brands, these 
 | `beta` | Pre-release and experimental surfaces |
 
 <Warning>
-  The destructive intent is `danger`, not `error`, and the identity intent is `brand`, not `primary`. Those two names are the most common source of a config that loads but produces nothing where you expected it.
+  Two kinds of naming apply here. `brand` and `neutral` are **contractual** — the loader refuses a config without them (and `brand` is the identity intent; there is no `primary`). Every other name is **convention**: the bundled demo configs and these docs use `danger`, but your brand may call its destructive intent `error` or `destructive` and get identical solver treatment. What actually breaks expectations is assuming a conventional intent exists without declaring it — nothing ships an `error` (or even a `danger`) intent by default; your `intents:` map is the only source of truth for which intents exist.
 </Warning>
 
 Brands lean on custom intents heavily. A fictional Aurora Airways family might declare `aurora-navy` and `aurora-burgundy` at the family level, while its Rewards sub-brand adds loyalty-tier intents like `tier-gold`, `tier-silver`, `tier-platinum`, and `tier-accent` — each getting the full solver treatment.

@@ -11,7 +11,7 @@ import RuntimeInitExample from '/snippets/runtime-init-example.mdx';
 | Step | Necessity | Where |
 |---|---|---|
 | Import through the three public aliases | Required | This page |
-| Load the CSS barrel + make the three runtime calls | Required | This page |
+| Load the CSS barrel + initialize the runtime | Required — **written for you by `substrate setup`**; one import and one call by hand on the vendored path | This page |
 | Opt elements into the cascade with `data-ucs` / `data-mode` | Required | [Markup Opt-In](/markup) |
 | Scope nested surfaces with the Surface component | Required when surfaces nest | [Surface Component](/surface-component) |
 | Follow OS preferences with the runtime helpers | Recommended | This page |
@@ -49,11 +49,11 @@ The rule in one line: reach all engine behavior through `@substrate/engine`, kee
 
 ## The runtime call sequence
 
-Substrate requires a JavaScript runtime on the web. Load the generated CSS barrel once, then make three calls in order:
+Substrate requires a JavaScript runtime on the web — but on the supervised `substrate setup` path you don't write this wiring at all: `setup --apply` generates `src/substrate.setup.ts` (the CSS import plus `initializeSubstrate()`) and wires it into your application entry itself. On the vendored path, the same module is one import and one call:
 
 <RuntimeInitExample />
 
-Each call has a distinct job:
+Each call in that sequence has a distinct job:
 
 **`syncBrandToCssVars(brand)`** sets `data-brand="<slug>"` on the root element and writes the brand's static custom properties — typography families and fluid sizing, shape, motion durations, spacing units, effects. Call it once per brand, and again only if the brand changes.
 
@@ -99,7 +99,9 @@ const cleanups = [
 cleanups.forEach((stop) => stop());
 ```
 
-`prefers-color-scheme` is deliberately not in this list — scheme is a continuous axis and often an in-app choice, so you decide whether the OS drives it. See [Light & Dark](/modes/light-dark#moving-along-the-axis).
+Two things are already automatic before any of these helpers run. The generated CSS bakes a no-JS floor that follows the OS's `prefers-color-scheme` and `prefers-contrast` media queries on its own — a server-rendered page paints accessibly, in the user's OS scheme, before a single byte of JS executes (see [the no-JS floor](/modes/overview#the-no-js-floor)). And `initializeSubstrate()` covers the entire startup sequence. The helpers exist to keep the *live* preference vector following OS signals after startup.
+
+`prefers-color-scheme` is deliberately not among the helpers — scheme is a continuous axis and often an in-app choice, so you decide whether the OS drives it. See [Light & Dark](/modes/light-dark#moving-along-the-axis).
 
 ---
 

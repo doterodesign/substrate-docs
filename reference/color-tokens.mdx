@@ -10,7 +10,7 @@ import MarkupOptInExample from '/snippets/markup-optin-example.mdx';
 Substrate does not emit a palette of named color tokens. It emits **per-intent solver primitives** — hue, chroma, and solved lightness channels — and the generated CSS composes final colors from them with `calc()`. Every variable below exists for *every intent the brand declares*: the conventional names (`brand`, `neutral`, `danger`, `warning`, `success`, `info`, `beta`) and any custom intents (`tier-gold`, `acme-cyan`, …) get identical treatment. See [Core Concepts](/core-concepts#computed-vs-static-tokens) for the model.
 
 <Note>
-  There is no `--color-*` namespace, and the semantic intent for errors is named `danger`, not `error`. The reference tables on this page are generated from the ground-truth manifest extracted from the engine.
+  There is no `--color-*` namespace. Intent names come solely from the brand's `intents:` map — the demo configs and these docs use the conventional `danger` for destructive states, and no `error` intent exists unless a brand declares one. The reference tables on this page are generated from the ground-truth manifest extracted from the engine.
 </Note>
 
 ## Intent primitives

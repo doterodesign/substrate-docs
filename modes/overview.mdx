@@ -27,7 +27,7 @@ Every axis is an independent, continuous scalar (`cvd` being a small struct rath
 Because the axes are independent, they compose freely. A user who wants a dark interface with elevated contrast, reduced motion, and deutan compensation is not choosing a fourth "mode" — they are setting four numbers.
 
 <Note>
-  There is no theme attribute in Substrate. `scheme` is a continuous variable, not a string; the runtime writes `data-brand` on the root element; and `data-mode` selects a **semantic intent role**, not a display mode. See [Applying a mode](#applying-a-mode) below.
+  There is no theme attribute in Substrate. `scheme` is a continuous variable, not a string; the runtime writes `data-brand` on the root element; and `data-mode` is a **composable mode list** (intent roles, component roles and states, preset-level and material tokens) — a preset token applies property deltas, it does not move the scheme axis. See [Applying a mode](#applying-a-mode) below.
 </Note>
 
 ---
@@ -90,7 +90,7 @@ Elements opt into the resulting cascade with `data-ucs`, and pick an intent role
 
 <MarkupOptInExample />
 
-`data-mode` is matched with `~=` against a space-separated token list, so an element can carry several roles at once. It is a role selector, not a theme switch.
+`data-mode` is matched with `~=` against a space-separated token list, so an element can carry several mode tokens at once — intent roles, component roles and states, brand preset levels, materials. Tokens apply property effects; the scheme axis itself stays on the preference vector. The full token vocabulary is on [Markup Opt-In](/markup).
 
 ---
 
