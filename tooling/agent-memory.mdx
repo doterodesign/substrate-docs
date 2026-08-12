@@ -1,0 +1,94 @@
+---
+title: "Agent Memory: How Bloom Learns and Retains"
+sidebarTitle: "Agent Memory"
+description: "The engine's memory/ folder is Bloom's persistent working memory — an index plus topic files with a specified entry format, structured queues, and a pruning lifecycle. Learnings flow one way: memory → references → knowledge."
+---
+
+The engine repository carries a top-level `memory/` folder: [Bloom](/tooling/bloom)'s persistent learnings from working on the system. It is deliberately a **working set, not an archive** — entries are tagged with who provided the feedback, and anything promoted into a reference file is pruned. If the [Knowledge Base](/tooling/knowledge-base) is what the agent *knows about the world*, memory is what it has *learned on the job* and not yet consolidated.
+
+## Structure: an index plus topic files
+
+The entry point is `memory/MEMORY.md` — an index, not a store. Each line links a topic file and compresses its content to one sentence, under headed sections (Patterns, Gotchas, Decisions, Feedback, Team). Bloom checks the index at the start of interactions where past context would matter; the index tells it which files exist and what they contain, so it reads only what the task needs.
+
+Around the index sit three kinds of files:
+
+- **Four canonical topic files** — `patterns.md`, `gotchas.md`, `decisions.md`, `feedback.md` — the default homes for new learnings.
+- **Per-topic deep-dive files** — a learning substantial enough to need its own file gets one, and the index links it.
+- **Three structured queues** (engine repository only) — `maintenance-findings.md`, `capability-gaps.md`, and `skill-regressions.md`, each carrying its own entry format and lifecycle contract in its header.
+
+## The entry format
+
+One format is specified for any skill writing memory:
+
+```markdown
+## [Topic] — [YYYY-MM-DD]
+**From:** [Person name/role]
+**Context:** [What was being worked on]
+**Learning:** [The actual insight]
+**Applied to:** [What reference/skill this affects, if any]
+```
+
+The two metadata fields are load-bearing. **`From`** tracks who on the team holds which knowledge and preferences. **`Applied to`** enables pruning: once a learning has been written into a reference file or a skill procedure, the memory entry was the vehicle, not the destination — it can be pruned in the next reflection cycle. Tagging that line `Promote-to: knowledge/` nominates the entry for human-gated promotion into the knowledge base.
+
+There is also a write threshold: memory is not a diary. The instruction to the agent is to store **only learnings that will change how it operates** — routine interactions produce no entry.
+
+A synthesized example, the shape of a real entry:
+
+```markdown
+## Loyalty-tier borders need the border channel — 2026-08-12
+**From:** Jordan (design lead)
+**Context:** Auditing nested cards in the aurora-rewards checkout
+**Learning:** Tier surfaces read as flat when composed without the solved
+border lightness; the border channel is required, not decorative.
+**Applied to:** references/surface-model.md
+```
+
+## The structured queues
+
+The three queues are the most rigorously specified files in the folder — each is a small state machine.
+
+**`maintenance-findings.md`** — non-blocking findings from the engine's self-check (blocking findings are surfaced immediately, never queued). Entries move `open` → `proposed` → `resolved` or `rejected`, with three rules: **closed-loop verification** (an entry resolves only when the specific guard named in its `Source guard` field re-runs clean — approval alone never resolves anything), **dedupe** (a recurring open finding updates `Last seen` instead of duplicating), and **recurrence re-opens** (a resolved finding that comes back re-opens the *same* entry, keeping its verification history).
+
+**`capability-gaps.md`** — an append-only log of requests Bloom could not route to any skill. Each entry records the request near-verbatim, which registry entries were considered and why each was rejected, and the outcome. The reflect cycle clusters recurring gaps into proposals for new skills; an entry is pruned only when a skill covers the gap or it is explicitly rejected. This is the raw material the skill-creation pipeline feeds on.
+
+**`skill-regressions.md`** — failures observed while executing a skill: wrong output, missed validation, bad routing. Two or more instances of the same failure become a fix proposal. Its lifecycle has one distinctive twist: most skill failures have no machine check, so a proposed fix is verified only by the skill's **next successful use**. A single instance stays logged as a data point.
+
+All three carry the same authority disclaimer: status bookkeeping is autonomous (these are memory files), but the fixes themselves are always human-gated proposals.
+
+## Who writes memory
+
+Four writers, one of them automated:
+
+1. **Bloom, during work** — after a meaningful interaction, it creates or updates a topic file and updates the index.
+2. **A session-end hook** — the one automated writer. A `Stop` hook script scans the session transcript for human correction patterns (a regex heuristic matching phrases like "no,", "wrong", "should be", "actually" — not model-driven extraction) and appends up to five matches as a dated *Session Learnings* block to `feedback.md`. It respects a `.bloom-disabled` marker and honors `SUBSTRATE_MEMORY_DIR`.
+3. **Workflows** — the daily evolve/reflect cycle writes a dated cycle record to the index (consolidated, pruned, promoted, proposed, deferred); the component-build workflow records discovered patterns; the health-check workflow writes its summary.
+4. **The routing fallback** — appends to `capability-gaps.md` whenever no skill route matches.
+
+## The trust boundary
+
+The single most important fact about this folder is what it is allowed to touch. Autonomous writes are confined to **`memory/` and `references/`** — never `knowledge/`, never skill or agent definitions. The tiers form one directed flow with one human gate:
+
+| Tier | What lives there | Who writes it |
+|---|---|---|
+| `memory/` | Working learnings, queues, proposals | The agent, freely — including from cron |
+| `references/` | Verified system facts | Promoted autonomously during reflection |
+| `knowledge/` | Sourced world knowledge (the SSOT) | **A human only**, via the knowledge skill's `--build` operation |
+
+An unattended reflection can consolidate memory and update references, and it can *propose* a knowledge promotion — but the knowledge base is out of scope for reflection entirely. See [the promotion path](/tooling/knowledge-base#authoring-how-knowledge-gets-written) for the full five-step lifecycle.
+
+## Pruning
+
+Reflection prunes an entry when it is **promoted** (now lives in a reference or skill procedure), **stale** (describes a file, field, or pattern that no longer exists), **embedded** (a one-time correction since internalized into standing procedure), or superseded. Reflection runs on a daily cycle, and is also triggered by volume (roughly 8–10 new entries across topic files), open maintenance findings, or recurring skill regressions. This is why the folder stays a working set: consolidation is scheduled, not aspirational.
+
+## In your project
+
+`substrate init` seeds a **client-owned memory** in your content root: a client `MEMORY.md` plus the four canonical topic-file stubs, created only if missing — re-running init never clobbers what Bloom has learned about *your* project. The scaffolded settings wire the session-end hook with `SUBSTRATE_MEMORY_DIR` pointed at that client path, so corrections you make in-session accumulate locally. The three structured queues are engine-repository constructs and are not scaffolded into clients.
+
+<CardGroup cols={2}>
+  <Card title="Knowledge Base" icon="book-open" href="/tooling/knowledge-base">
+    Where vetted, sourced learnings are promoted — and why only a human can put them there.
+  </Card>
+  <Card title="Bloom" icon="seedling" href="/tooling/bloom">
+    The agent whose memory this is — activation, skills, and guardrails.
+  </Card>
+</CardGroup>

@@ -1,5 +1,18 @@
 # Decisions (UCS-1129, 2026-08-12)
 
+- Component/knowledge docs round (2026-08-12): new nav groups — "Component
+  Config" (component-config/overview + type-configs) after Brand Config;
+  tooling/knowledge-base + tooling/agent-memory after Bloom. Component-config
+  examples come ONLY from base configs (badge/button/card/surface, the five
+  src/types archetypes) — never from src/components/*/brands/** overrides,
+  which name real companies and cite their production CSS. The engine's
+  memory/ folder is confidential (real names, ops detail): docs describe its
+  formats with synthesized fictional examples, never verbatim quotes.
+  Research reports: .claude/reports/2026-08-12-component-and-type-configs.md
+  and 2026-08-12-knowledge-memory-folders.md (incl. engine prose/SSOT drift
+  found: knowledge/AGENTS.md misdescribes _rules.yaml; memory entry-format
+  drift — docs present the specified format without claiming uniformity).
+
 - Tracker is Linear (team "Unknown creatives studio"); site publishing goes
   through the Mintlify MCP (OAuth is interactive — user runs /mcp).
 - One test seam: committed ground-truth manifest (generated inside an engine

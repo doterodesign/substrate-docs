@@ -26,6 +26,22 @@
   (docs/superpowers/specs/2026-08-12-cli-npm-publishing-design.md).
 
 ## Tooling traps
+- NEVER append `|| echo …` to a multi-step `&&` verification chain: || binds
+  the WHOLE chain (equal precedence, left-assoc), so the echo masks any
+  intermediate failure and the chain exits 0. Bit us 2026-08-12: a "no brand
+  vars anywhere" line printed from the || branch after npm test had run the
+  ENGINE's suite (cd-into-worktree cwd gotcha, again). Verify in separate
+  commands from the docs repo cwd.
+- The committed manifest carried --ucs-{brandSlug}-* variable families for
+  the real-company demo brands (generated-css glob) until 2026-08-12 — the
+  legal brand-name directive covers the manifest too. The generator now
+  filters them (slugs from src/brands dirs incl. sub-brands; intent-family
+  patterns keep the checker complete) and a test enforces it.
+- The generator extracts component/type config keys (base
+  src/components/*/config.yaml + src/types/*/config.yaml + properties.yaml;
+  brand override dirs excluded) and skill flags (skills/*/SKILL.md) — docs
+  quoting shipped component configs or naming skill operations (--build)
+  pass the gate without allowlist entries.
 - Engine CLI entry: packages/cli/bin/substrate-init.js is a 23-line
   crash-guard shim since UCS-1124; dispatch + usage live in bin/main.js,
   setup usage in bin/lib/setup-plan.js. The manifest generator extracts CLI

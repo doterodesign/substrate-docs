@@ -1,0 +1,132 @@
+---
+title: "The Knowledge Base: World Knowledge for Personalization"
+sidebarTitle: "Knowledge Base"
+description: "The engine's knowledge/ folder is a Dewey-style catalog of system-agnostic world knowledge — perception, accessibility, culture, language — that grounds Bloom's personalization reasoning. This page is the authoring and consumption contract."
+---
+
+The engine repository carries a top-level `knowledge/` folder: a curated base of **world knowledge** — facts about human perception, accessibility, culture, and language as they relate to interface adaptation. Its defining constraint is stated in its own catalog: it **never references specific system elements** (properties, components, modes, config keys). Knowledge about *Substrate itself* lives elsewhere (`references/` and the ontology); the bridge between world knowledge and system behavior lives in skill reasoning, not in these files.
+
+This separation is why [Bloom](/tooling/bloom) can reason about, say, low vision or right-to-left scripts without that knowledge going stale every time an engine API changes.
+
+## How it is organized
+
+The folder is an explicit analogue of the **Dewey Decimal Classification**: a four-level tree of *catalog → domain → division → leaf*, plus cross-domain qualifier tables.
+
+```
+knowledge/
+├── _catalog.yaml        # the root: six domains
+├── _rules.yaml          # ambiguity-resolution rules, in priority order
+├── AGENTS.md            # the read/traversal protocol for agents
+├── _tables/             # cross-domain qualifiers (geographic, groups, languages)
+├── accessibility/       # domain → divisions (vision/, motor/, cognitive/, …) → leaf .md files
+├── culture/
+├── perception/
+├── language/
+├── context/
+└── state/
+```
+
+The six domains separate along an explicit **time-scale axis**:
+
+| Domain | Covers | Time-scale |
+|---|---|---|
+| `accessibility` | Vision, motor, cognitive, auditory, mental health | Persistent traits |
+| `culture` | Color meaning, reading direction, symbolism, typography conventions | Stable, group-level |
+| `perception` | Color theory, density comfort, motion sensitivity | Universal mechanisms |
+| `language` | Script systems, numeral systems, text expansion | Stable, language-level |
+| `context` | Ambient light, device, activity | External situation — minutes to hours |
+| `state` | Psychological, physiological, chronobiological | Transient internal — hours to months |
+
+`state` exists as a separate domain from `accessibility` precisely because those conditions *resolve* — jet lag and pregnancy-induced visual changes are not persistent traits. Not every division is populated: a division can carry an index with an explicit deferral note and no leaves yet, so the tree shows its coverage gaps honestly rather than papering over them.
+
+## The three file shapes
+
+**`_catalog.yaml`** — the root. Declares the domains (`id`, `heading`, `description`) plus typed `notes`, including dated `revision` notes that double as an in-file changelog.
+
+**`_index.yaml`** — one per domain and one per division. Domain indexes list `divisions`; division indexes list `sections`, where each section is `{id, heading, file}` — the `file` field is the hard link to the leaf.
+
+**Leaf `.md` files** — YAML frontmatter plus a Markdown body:
+
+| Frontmatter field | Purpose |
+|---|---|
+| `notation` | Dewey-style position, e.g. `1.1.3` (domain.division.section) |
+| `domain`, `division`, `heading`, `description` | Position and summary |
+| `notes` | Typed governance notes (see below) |
+| `terms` | Search and matching vocabulary for resolution |
+| `edition` | Incremented whenever the leaf is expanded |
+| `contributors` | Who authored and expanded the entry |
+| `sources` | Structured citations — `id`, `title`, `authors`, `publisher`, `year`, `doi`/`isbn`/`url`, and a `type` such as `peer-reviewed`, `agency`, or `monograph` |
+
+The body is prose with **inline bracket citations keyed to source ids** — a claim reads like `…central field loss [who-vision-fs, legge-2007]` — and by convention closes with an *Interaction Effects* section that enumerates how the condition compounds with others, cross-linking to their paths. Citations are not decoration: an unsourced claim is not eligible to enter the knowledge base at all.
+
+### The typed notes vocabulary
+
+Every level of the tree uses the same DDC-derived note types, and agents are instructed how to act on each:
+
+| `type` | Meaning | Agent behavior |
+|---|---|---|
+| `scope` | What this entry covers and excludes | Boundary statement |
+| `class-here` | What kind of material belongs at this node | Authoring guidance |
+| `class-elsewhere` | Redirect — this content lives at another path | Follow the pointer and read there instead |
+| `see-also` | Related knowledge | Read when a task touches multiple aspects of one need |
+| `including` | "Standing room" — topics parked here without their own leaf | Placeholders, not authoritative content |
+| `revision` | Dated changelog entry | Provenance |
+
+"Standing room" is actionable: the audit operation flags any `including` item referenced from three or more entries as a candidate for promotion to its own leaf.
+
+### Classification rules
+
+When a fact could live in more than one place, `_rules.yaml` resolves it with five rules applied in priority order: **rule of application** (classify where the knowledge is *applied* — the impact of culture on accessibility belongs in accessibility), **fuller treatment** (prefer the deeper entry), **first of two** (equal applicability → the earlier node, unless both are the two major subdivisions of one parent — then use the parent), **rule of three** (three or more siblings apply → use the parent), and a **table of last resort** ordering. The `--explain` operation names which rule decided any given placement.
+
+### Qualifier tables
+
+`_tables/` holds three cross-domain qualifier files — `geographic.yaml` (regions), `groups.yaml` (demographic groups), and `languages.yaml` (script systems with reading direction) — each modeled on a DDC auxiliary table. A leaf does not enumerate every regional or script variation; the reasoning step combines the base leaf with the applicable qualifiers.
+
+## Who consumes it
+
+**Bloom, by progressive disclosure.** The traversal protocol lives in `knowledge/AGENTS.md` and its core mandate is a hard rule: *never read by hardcoded path — always start from the catalog and descend* (`_catalog.yaml` → domain `_index.yaml` → division `_index.yaml` → leaf). Descending through the indexes prevents both over-reading and under-reading — a leaf's classification context is part of its meaning.
+
+**The `substrate-knowledge` skill.** Five operations, only one of which writes:
+
+| Operation | Purpose | Writes `knowledge/`? |
+|---|---|---|
+| `--classify` | Propose where new knowledge belongs, applying the rules | No |
+| `--build` | Create or expand entries | **Yes — the only path that does** |
+| `--resolve` | Navigate from a natural-language need to the relevant leaves | No |
+| `--audit` | Walk the whole tree for structural integrity | No |
+| `--explain` | Explain a classification decision root-to-leaf | No |
+
+The audit is the concrete definition of "structurally valid": every index id has a matching directory, every listed leaf file exists, every leaf carries required frontmatter plus at least one governance note and one `revision` note, every `class-elsewhere`/`see-also` path resolves, orphan files are reported, and heavily referenced standing-room items are flagged for promotion.
+
+**The MCP server.** The tree is compiled into the engine's MCP package and served as resources (`substrate://knowledge`, per-domain and per-leaf URIs), and the personalization pipeline records which leaves it consulted.
+
+**The eval tree.** `evals/` mirrors the knowledge tree, and evals fire only for domains whose knowledge paths were actually consulted in a run — so coverage gaps between the two trees are structurally visible.
+
+## Authoring: how knowledge gets written
+
+Writing `knowledge/` is **human-gated by convention**: the self-learning loop never writes it autonomously, and every change flows through a reviewer running the `--build` operation against vetted findings. (The gate is procedural — stated in the skill — rather than enforced by a write-guard hook.)
+
+A **new leaf** starts from `--classify` (or an accepted pre-classification), gets full frontmatter — notation, headings, governance notes, terms, `edition: 1`, contributors, sources — and its parent division's `_index.yaml` `sections` list is updated in the same change. **Expanding a leaf** adds content, adds a dated `revision` note, increments `edition`, and adds the contributor.
+
+Most knowledge arrives through the **findings → knowledge promotion path**, a five-step lifecycle shared with [Agent Memory](/tooling/agent-memory):
+
+1. **Accumulate** — learnings land in `memory/` during work; a candidate is tagged `Promote-to: knowledge/`.
+2. **Queue** — reflection surfaces candidates but never acts on them autonomously.
+3. **Review gate** — a human checks that it is world knowledge (not a system fact, which belongs in `references/`), durable and *sourced*, non-duplicative, and correctly classified.
+4. **Promote** — the reviewer runs `--build`; this is the only step that mutates `knowledge/`.
+5. **Prune** — the originating memory entry becomes prunable on the next reflection cycle.
+
+The rationale is the system's trust model in one sentence: Bloom self-learns, but the single-source-of-truth world-knowledge base must not drift on autonomous writes — an unattended reflection can *propose*; only a human *promotes*.
+
+## In your project
+
+`substrate init` scaffolds a **client-side `knowledge/` directory** alongside `components/` and `brands/` for project-specific overlay entries, and the vendored engine checkout carries the engine's own tree at `substrate/engine/knowledge/` — that is what the linked skills read at runtime. On refresh, `substrate upgrade` compares your overlay against the updated engine entries and reports semantic duplications so they can be reconciled instead of silently diverging.
+
+<CardGroup cols={2}>
+  <Card title="Bloom" icon="seedling" href="/tooling/bloom">
+    The agent that navigates this tree — activation, skills, and guardrails.
+  </Card>
+  <Card title="Agent Memory" icon="brain" href="/tooling/agent-memory">
+    Where learnings accumulate before promotion, and the trust boundary between memory, references, and knowledge.
+  </Card>
+</CardGroup>

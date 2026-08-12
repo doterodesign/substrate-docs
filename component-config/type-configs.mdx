@@ -1,0 +1,126 @@
+---
+title: "Type Configs: The Five Shared Archetypes"
+sidebarTitle: "Type Configs"
+description: "Type configs under src/types define reusable role, state, mode, and semantic-map patterns that components inherit via extends — including the text roles that drive per-role APCA foregrounds."
+---
+
+A **type config** is a shared archetype: a root-level YAML config under `src/types/` that defines reusable role, state, mode, and semantic-map patterns. Components inherit one with `extends:` and then override or delete what differs — badge extends the action archetype and deletes its interaction states; button extends the same archetype and keeps them. Types are portable source, not platform adapters: the same archetype feeds every output target.
+
+Five archetypes exist:
+
+| Archetype | `extends:` value | What it defines | Typical components |
+|---|---|---|---|
+| **Action** | `types/action` | `primary`/`secondary`/`auxiliary` emphasis roles plus action interaction states | button, badge, tab |
+| **Input** | `types/input` | A single `primary` role with value/change/validation-oriented states, plus `selected` and `indeterminate` modes | input, checkbox, field controls |
+| **Text** | `types/text` | The text roles — `heading`, `body`, `caption`, `label`, `code`, `kbd` | text components and component parts via `uses:` |
+| **Feedback** | `types/feedback` | Feedback-oriented roles and state treatments | alert, card |
+| **Chart** | `types/chart` | Data-visualization style semantics, kept separate from chart geometry | chart integrations |
+
+## Anatomy of a type config
+
+Every type config shares the same top-level shape — `type:`, an `effect:` channel (`backdrop-filter` for all archetypes except text, which uses `filter`), a `meta:` block, and then `roles:`, `modes:`, and `semantic-map:`. The `meta:` block states a system-wide invariant, annotated identically in all five files:
+
+```yaml
+# Consumable-intent capability — intents are universal; this is the only
+# restriction surface. 'all' = every intent the brand defines.
+meta:
+  intents: all
+```
+
+Intents are universal — a type config cannot invent color semantics, only restrict which of the brand's intents its components may consume, and all five shipped archetypes restrict nothing.
+
+The action archetype, abridged to one role per concept:
+
+```yaml
+type: action
+effect: backdrop-filter
+
+meta:
+  intents: all
+
+roles:
+  primary:
+    background:
+      alpha: 1.0
+    foreground:
+      contrast: auto
+      chroma: 0
+    states:
+      hover:
+        background:
+          lightness: "+0.05"
+      pressed:
+        background:
+          lightness: "-0.03"
+  secondary:
+    background:
+      alpha: 0.2
+    foreground:
+      contrast: 1.0
+      chroma: 1.0
+    border-width: 1
+    border-style: solid
+    border:
+      contrast: 1.0
+      chroma: 0.8
+    states:
+      hover:
+        background:
+          tint: 0.08
+
+modes:
+  selected:
+    foreground:
+      contrast: 1.0
+      chroma: 1.0
+    background:
+      alpha: 0.12
+
+semantic-map:
+  border:
+    thin: 1
+    medium: 1.5
+    heavy: 2
+```
+
+The `semantic-map` is the named-to-numeric lookup: a component (or author) writing `border: thin` gets `1` through this table rather than a magic number. The other archetypes vary the same vocabulary — feedback's `auxiliary` role authors `border-x-start-width: 3`, the logical-property spelling that produces the classic left-accent alert bar and mirrors correctly in right-to-left scripts; input adds an `indeterminate` mode alongside `selected`.
+
+**Chart is the structural outlier**: it has no `roles:` or `modes:` at all, defining instead `series:` (named palettes composed of intent + contrast stops — `solo`, `comparison`, `percentile`, `categorical`), `overlays:` (threshold bands and target lines), `states:` (`default`/`selected`/`dimmed` for series elements), and `axis:` styling. Everything still references intents by name, so chart colors go through the same solver as everything else.
+
+## The text archetype: where typography meets contrast
+
+`types/text/config.yaml` defines the six text roles. Each role carries a font family variable, a `font-scale` step exponent, weight, line height, letter spacing, and a `fluid:` envelope:
+
+| Role | `font-scale` | `font-weight` | Character |
+|---|---|---|---|
+| `heading` | `3` | `700` | Display headings on `--font-heading` |
+| `body` | `0` | `400` | The baseline — one line-height and family for running text |
+| `caption` | `-0.75` | `400` | The fractional step a discrete ladder could never express |
+| `label` | `-0.5` | `600` | Uppercase, wide tracking, line-height 1 |
+| `code` | `-0.25` | `400` | Mono family |
+| `kbd` | `-0.5` | `600` | Mono, compact |
+
+The `fluid:` envelope per role (`floor`, `ceiling`, `min`, `max`, `reference: container`) feeds a second generated rule gated by `[data-mode~="fluid"]` — fluid typography is opt-in per element via that mode token, exactly as the [markup contract](/markup) describes.
+
+### How text roles drive per-role APCA foregrounds
+
+This file is also the source of the role-specific solved foregrounds you see in the [color token reference](/reference/color-tokens) — the chain runs from YAML to solver to CSS:
+
+1. **Baseline election.** The generator elects the baseline role as the one whose `font-scale` is closest to zero (ties broken alphabetically) — with the shipped config, `body`. This is derived, not hard-coded: reshape the scale and the baseline can move.
+2. **Per-role solve.** For every other role, the role's step exponent and the brand's ratio yield a rendered pixel size; size and weight index into Substrate's size/weight-aware Lc floor table (its own construction — see the [APCA Solver reference](/reference/apca-solver)); and that target is solved against the actual surface. Larger, bolder text legitimately needs less contrast, so each role earns its own solved lightness instead of sharing one global foreground.
+3. **Emission.** The solver writes `--ucs-{intent}-fg-l-{role}` per intent × non-baseline role; the generated CSS narrows it to `--intent-fg-l-{role}` inside each intent's scope; and a text element carrying `data-mode~="heading"` picks it up with a fallback to the base foreground. The baseline role uses the plain `--intent-fg-l` directly, and where a parent already declared `contrast: auto`, the spatial foreground is suppressed with an explanatory comment in the output rather than silently fighting it.
+
+The engine also seals a mirror of these six roles as bootstrap defaults in the kernel — the compiler cannot depend on its own generated output to start — and installs a client's generated text-role manifest over them at runtime.
+
+## Authoring with archetypes
+
+Reach for a type config when a *pattern* recurs across components — roles, states, or semantic maps that would otherwise be copy-pasted. The inheritance mechanics are the same cascade as everywhere else (see [the resolution cascade](/component-config/overview#the-resolution-cascade)): objects deep-merge, `null` deletes, and a brand can override at the type level so the change reaches every component that extends it. Parts can tap an archetype directly with `uses:` — a part named after a text role inherits that role's tokens without the component extending the whole type.
+
+<CardGroup cols={2}>
+  <Card title="Component Config Overview" icon="cube" href="/component-config/overview">
+    The full config.yaml schema — channels, parts, validation, and the cascade.
+  </Card>
+  <Card title="Type Tokens" icon="font" href="/reference/type-tokens">
+    The generated typography variables the text roles resolve into.
+  </Card>
+</CardGroup>

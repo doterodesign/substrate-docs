@@ -1,0 +1,212 @@
+---
+title: "Component Config: Anatomy of a Component's config.yaml"
+sidebarTitle: "Overview"
+description: "Every Substrate component is driven by a YAML config — roles, states, modes, parts, and channel blocks that the generator turns into CSS. This page is the authoring contract for config.yaml."
+---
+
+Where the [brand config](/brand-config/overview) declares what your brand *means*, component configs declare how each component *behaves*: its variants, interaction states, structure, and spatial rhythm. Every component in the engine is a directory under `src/components/` with a fixed file layout:
+
+```
+src/components/badge/
+├── config.yaml        # the engine config — styling; drives generation
+├── config.doc.yaml    # the documentation config — prose; drives docs
+├── brands/            # per-brand override configs (deltas only)
+└── web/               # the platform implementation (React)
+```
+
+The directory name **is** the component name. Two hand-authored files sit side by side and must not be conflated: `config.yaml` is the styling config this page documents; `config.doc.yaml` is prose metadata (description, anatomy, accessibility, guidelines). A third file shape, `config.doc.gen.yaml`, is a generated per-brand projection — derived, never edited.
+
+## The vocabulary
+
+The engine defines these terms precisely, and two of them are counter-intuitive:
+
+| Term | Definition |
+|---|---|
+| **Role** | A variant declared in the config's `roles:` map, carrying its own states. Roles are **usage-frequency tiers** — `primary`, `secondary`, `auxiliary` describe how often the variant is reached for, *not* how loud it looks. |
+| **State** | An interaction state defined inside a role (`hover`, `pressed`, `disabled`, `focus`), overriding properties directly. |
+| **Mode** | A combinatorial `data-mode` token (`selected`, `indeterminate`). **Modes combine; properties do not** — several modes can be active on one element at once. |
+| **Part** | A structural node the component owns outright. Parts form a tree; a part is not a component reference. |
+| **Slot** | A content-projection point — where a consumer supplies content the component does not own. |
+| **Intent** | A named color semantic. The authoritative set lives in the brand's config, not the component's — see [Color](/brand-config/color). |
+
+A documentation page may describe fewer roles than the config declares — never one the config does not.
+
+## A complete config
+
+The badge config, verbatim from the engine — small enough to read whole, and it exercises the core schema:
+
+```yaml
+component: badge
+extends: types/action
+
+style:
+  display: inline-flex
+  align-items: center
+  gap-column: 1.5
+  padding-x: 2
+  padding-y: 0.5
+  font-scale: -1
+  font-weight: 600
+  shape: full
+  white-space: nowrap
+  vertical-align: middle
+  pointer-events: none
+  transition-duration: none
+  transition-easing: default
+
+roles:
+  primary:
+    background:
+      alpha: 1.0
+    foreground:
+      contrast: auto
+      chroma: 0
+    states: null
+  secondary:
+    background:
+      alpha: 0
+    foreground:
+      contrast: 1.0
+      chroma: 1.0
+    border-width: 1
+    border-style: solid
+    border:
+      contrast: 1.0
+      chroma: 0.8
+    states: null
+  auxiliary:
+    background:
+      alpha: 0
+    foreground:
+      contrast: 1.0
+      chroma: 1.0
+    states: null
+```
+
+Three things to notice:
+
+- **`extends: types/action`** pulls in a shared archetype — roles, states, and semantic maps defined once in a [type config](/component-config/type-configs). The value is a path (`types/action`), not a bare name.
+- **`states: null` deletes.** Badge inherits hover/pressed states from the action archetype, then removes them, because a badge is non-interactive. `null` is the *only* delete signal in the cascade — there is no separate "unset" keyword.
+- **Relative deltas are quoted strings.** Where a state nudges a channel, it authors `lightness: "+0.05"` — quoted so YAML preserves the sign and the value stays a delta rather than an absolute.
+
+The top-level keys:
+
+| Key | Meaning |
+|---|---|
+| `component:` | The component's name. Required. |
+| `class:` | Emitted CSS class. Optional — derived as `sub-{component}` when omitted. |
+| `extends:` | Type archetype to inherit (`types/action`, `types/text`, …). |
+| `layer:` | CSS cascade layer; defaults to `ucs.component-specific`. |
+| `style:` | The root style bag — properties shared by every role. |
+| `roles:` | The variant map; each role may carry `states:` and `parts:`. |
+| `modes:` | Combinatorial `data-mode` tokens with their property effects. |
+| `parts:` / `slots:` | Owned structure / content-projection points. |
+| `breakpoints:` / `platforms:` | Per-breakpoint and per-platform style bags. |
+| `contract:` | Behavioral bindings (e.g. `on-click`, `disabled`). |
+| `semantic-map:` | Named-to-numeric lookups (border `thin`/`medium`/`heavy`). |
+| `meta:` | Metadata, including the consumable-intents capability. |
+
+## Channels: background, foreground, border
+
+`background`, `foreground`, and `border` are **channels**, not ordinary properties. A channel accepts either a scalar shorthand or a block of channel keys — `lightness`, `chroma`, `contrast`, `alpha`, `tint`, `gradient`, `filter`, `noise`:
+
+| Channel | Valid scalars | Block example |
+|---|---|---|
+| `background:` | `solid`, `none`, `tint(<0-1>)` | `{ alpha: 0.2 }` — brand-tinted at 20% |
+| `foreground:` | `auto`, or a contrast number | `{ contrast: 1.0, chroma: 1.0 }` — full solver treatment |
+| `border:` | `none`, `thin`, `medium`, `heavy`, or pixels | `{ contrast: 1.0, chroma: 0.8 }` |
+
+`foreground: { contrast: auto }` means auto-contrast — black on light, white on dark — computed from the resolved background rather than the APCA solve.
+
+<Warning>
+  **Channel blocks are position-sensitive.** A block is legal inside a role, part, or mode bag — and a hard error in the root `style:` bag or a breakpoint bag, where the emitter would treat it as a scalar and corrupt output. The validator refuses the config with exactly that explanation.
+</Warning>
+
+## Spatial values are multipliers, not pixels
+
+Spacing properties (`padding-x`, `padding-y`, `gap-column`, margins) are authored as unitless multipliers of the brand's spatial system. `padding-x: 2` generates:
+
+```css
+/* 8px at default density=1, scale=1, space-unit=4 */
+--surface-padding-x: calc(var(--density) * var(--scale) * var(--space-unit) * 2);
+```
+
+You author the ratio; the engine emits the responsive `calc()` chain, with the resolved-at-defaults pixel value as a comment. Similarly, `font-scale` is a **scale-step exponent**, not a size: `font-scale: -1` means one step below the base on the brand's type ratio, computed as `base × ratio^step` (with a density-coupling term) — the same continuous model as everywhere else in Substrate. `shape: full` is the capsule shorthand, emitting `border-radius: 9999px`.
+
+## Parts and `uses:`
+
+Parts declare the structure a component owns. The card component's parts, from the engine:
+
+```yaml
+parts:
+  header:
+    style:
+      display: flex
+      align-items: start
+      gap-column: 2
+  body:
+    style:
+      flex: 1
+      line-height: 1.5
+  footer:
+    style:
+      display: flex
+      align-items: center
+      gap-column: 2
+```
+
+A part can inherit its styling from a type-config role with `uses:`. The match is **by part name** against the type's roles, with a suffix fallback — a part named `emphasized-body` with `uses: types/text` inherits the `body` role. An unmatched `uses:` is a hard error at generation, with a message that names the available roles and suggests the nearest one — the engine's stated policy is converting silent no-ops ("the part would silently inherit nothing") into loud failures.
+
+## The resolution cascade
+
+A component's final config is a deep merge across up to six layers, in a fixed order:
+
+**base → type → brand type → sub-brand type → brand → sub-brand**
+
+Brand overrides live either as a colocated `brands/{brand}/config.yaml` inside the component directory or in the brand's own tree, and they are **deltas only** — a partial YAML containing exactly what changes, conventionally opened with a comment naming the brand, the component, and the design source. The merge rules are the same everywhere:
+
+| Override value | Result |
+|---|---|
+| `null` | Deletes the key |
+| object over object | Deep-merged recursively |
+| anything else | Replaces wholesale — arrays are never concatenated |
+
+Keys are normalized kebab-case → camelCase for the kernel, with one carve-out: named-resource keys (`intents`, `materials`, `gradients`, `ramps`) round-trip verbatim, so your intent named `acme-cyan` stays `acme-cyan`. A key collision after normalization throws rather than silently dropping a spelling.
+
+## Validation: the generator refuses bad configs
+
+Validation runs at generation time, and the policy is strict: unknown property keys, invalid value shapes, misplaced channel blocks, and unresolvable gradient references are **hard errors with actionable diagnostics** — pathed to the exact key (`parts.header.style.margin-y-top`) and carrying "did you mean" suggestions:
+
+```
+Unknown channel key "lightnes". Did you mean "lightness"?
+Valid keys: lightness, chroma, contrast, alpha, tint, gradient, filter, noise.
+```
+
+Every shipped config is also covered by corpus tests that validate the entire component tree on every engine test run, and `npm run build` verifies generated output is current before compiling — stale output fails the build.
+
+## From config to CSS
+
+The mapping to generated output is direct. For the badge config above, the generator emits `generated/global/css/components/badge/badge.gen.css` (marked `DO NOT EDIT`):
+
+| Config | Generated CSS |
+|---|---|
+| `style:` bag | `.sub-badge[data-ucs] { … }` — the base rule |
+| `roles.primary` | `.sub-badge[data-mode~="primary"] { … }` |
+| `modes.selected` | `.sub-badge[data-mode~="selected"] { … }` |
+| `layer:` | the wrapping `@layer ucs.component-specific { … }` |
+| a state (`hover:`) | the pseudo-class rule, **plus a `[data-mode~="hover"]` alias twin** so a state can be forced for testing or documentation |
+
+Roles and modes both emit `[data-mode~="…"]` selectors from the same code path — at the CSS level, a role name and a mode name are just tokens in the same space-separated attribute. That is why the [markup contract](/markup) treats `data-mode` as one composable mode list. A dev-time helper additionally watches the DOM and warns on `data-mode` tokens no config defines.
+
+<Note>
+  **One naming trap.** The [Surface component](/surface-component)'s config declares the roles `card`, `panel`, and `inset` — a pure containment vocabulary with no `extends:` and an empty root style. The *card component* is a different artifact: it extends the feedback archetype and uses the conventional `primary`/`secondary`/`auxiliary` roles. When you see `data-mode~="card"`, that is the surface role, not the card component.
+</Note>
+
+<CardGroup cols={2}>
+  <Card title="Type Configs" icon="shapes" href="/component-config/type-configs">
+    The five shared archetypes components inherit via extends — including the text roles that drive per-role contrast.
+  </Card>
+  <Card title="Markup Opt-In" icon="code" href="/markup">
+    How the roles, states, and modes defined here are activated per element with data-mode.
+  </Card>
+</CardGroup>

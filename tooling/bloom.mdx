@@ -56,9 +56,9 @@ Bloom routes each request to one of twelve skills. The roster is generated into 
 
 When no skill matches, Bloom names the capability gap, surfaces the nearest match, logs the gap to `memory/capability-gaps.md`, and can create a new skill through a human-gated pipeline. Six multi-step workflows (`build-component`, `evolve`, `guided-migration-pipeline`, `personalization-pipeline`, `skill-creation-pipeline`, `system-health`) compose skills into larger procedures.
 
-## Memory and references
+## Memory, knowledge, and references
 
-Bloom reads and writes a project-local `memory/` directory (scaffolded with `memory/MEMORY.md`) for learnings that persist across sessions, and reads the vendored `references/` material — architecture, component model, platform contracts, token system, ontology — rather than carrying copies of system facts in prose.
+Bloom reads and writes a project-local `memory/` directory (scaffolded with `memory/MEMORY.md`) for learnings that persist across sessions, and reads the vendored `references/` material — architecture, component model, platform contracts, token system, ontology — rather than carrying copies of system facts in prose. Behind those sit two systems with their own pages: the [Knowledge Base](/tooling/knowledge-base), the human-gated world-knowledge catalog Bloom navigates for personalization, and [Agent Memory](/tooling/agent-memory), the entry formats, queues, and pruning lifecycle that govern what Bloom retains.
 
 <Note>
   Bloom is a persona your agent tool loads, not a plugin or a daemon. It has no `plugin.json`, no scheduler, and takes no action unprompted — everything happens inside a conversation you start. None of its supporting modules are importable from the engine's public API.

@@ -72,6 +72,23 @@ test('manifest includes sentinel identifiers and excludes known fabrications', {
   assert.equal(c.apcaPolicy.values.borderLc, 50);
   assert.equal(c.apcaPolicy.values.focusRingLc, 60);
   assert.ok(c.configKeys.exact.includes('intents'), 'missing config key intents');
+  // Component/type config keys (UCS component-config docs): schema keys,
+  // shipped role/state/mode/part names, and style properties from the
+  // component corpus and the five type archetypes.
+  for (const k of [
+    'component', 'extends', 'semantic-map', 'platforms', 'slots',
+    'roles', 'states', 'modes', 'parts',
+    'primary', 'secondary', 'auxiliary', 'hover', 'pressed', 'selected',
+    'font-scale', 'gap-column', 'padding-x', 'border-width',
+    'heading', 'body', 'caption', 'label', 'fluid',
+  ]) {
+    assert.ok(c.configKeys.exact.includes(k), `missing component/type config key ${k}`);
+  }
+  // Skill operation flags must be known so `--build` in prose is not
+  // mistaken for a CSS variable.
+  for (const f of ['--build', '--classify', '--resolve', '--audit', '--explain']) {
+    assert.ok(c.cliFlags.exact.includes(f), `missing skill flag ${f}`);
+  }
   assert.ok(c.importAliases.exact.includes('@substrate/engine'));
 
   // Known fabrications must be absent
@@ -87,14 +104,33 @@ test('manifest includes sentinel identifiers and excludes known fabrications', {
   // never reference the bundled demo brands by name (legal), so the manifest
   // carries only brand-agnostic symbols. The brand list is derived from the
   // engine checkout itself — an independent source, no names hardcoded here.
-  const brandPrefixes = readdirSync(join(ENGINE, 'src/brands'), { withFileTypes: true })
+  const brandDirs = readdirSync(join(ENGINE, 'src/brands'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
-    .map((d) => d.name.split('-').map((s) => s[0].toUpperCase() + s.slice(1)).join(''));
+    .map((d) => d.name);
+  const brandPrefixes = brandDirs
+    .map((name) => name.split('-').map((s) => s[0].toUpperCase() + s.slice(1)).join(''));
   for (const sym of c.nativeSymbols.exact) {
     if (sym.startsWith('Substrate')) continue;
     for (const p of brandPrefixes) {
       const scoped = sym.startsWith(p) && (sym.length === p.length || /[A-Z0-9]/.test(sym[p.length]));
       assert.ok(!scoped, `brand-scoped symbol leaked into manifest: ${sym}`);
+    }
+  }
+
+  // Brand-named intent variables (--ucs-{brandSlug}-*-…) must be excluded
+  // from cssVariables.exact for the same legal reason: the intent-family
+  // patterns already validate any declared intent, so the manifest never
+  // needs to name a demo brand's intents. Slugs include sub-brand dirs.
+  const subBrandDirs = brandDirs.flatMap((b) =>
+    readdirSync(join(ENGINE, 'src/brands', b), { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name));
+  for (const slug of [...brandDirs, ...subBrandDirs]) {
+    for (const v of c.cssVariables.exact) {
+      assert.ok(
+        !v.startsWith(`--ucs-${slug}-`),
+        `brand-named css variable leaked into manifest: ${v}`,
+      );
     }
   }
 });

@@ -59,13 +59,25 @@ const { TEXT_ROLES } = await engineImport('generated/global/typescript/text-role
 
 const cssFiles = readAll(['generated/**/*.css', 'src/platforms/web/styles/**/*.css']);
 const runtimeFiles = readAll(['src/platforms/web/runtime/*.ts', 'src/platforms/web/css/*.ts']);
+
+// Brand-named intent variables (--ucs-{brandSlug}-…) are excluded for the
+// same legal reason as brand-scoped native symbols: docs never reference the
+// bundled demo brands by name, and the intent-family patterns already
+// validate any declared intent's variables. Slugs derive from the brand and
+// sub-brand directory names — nothing hardcoded.
+const brandSlugs = sorted([
+  ...globSync('src/brands/*/', { cwd: ENGINE }),
+  ...globSync('src/brands/*/*/', { cwd: ENGINE }),
+].map((dir) => dir.split('/').filter(Boolean).pop()!));
+const isBrandNamedVar = (v: string) => brandSlugs.some((s) => v.startsWith(`--ucs-${s}-`));
+
 const cssExact = sorted([
   ...matches(cssFiles, /(?:^|[\s{;(])(--[a-zA-Z][\w-]*)\s*:/gm),
   ...matches(cssFiles, /@property\s+(--[\w-]+)/g),
   // Variables the runtime and kernel write directly (vars maps / setProperty)
   ...matches([...runtimeFiles, ...readAll(['src/kernel/**/*.ts'])], /vars\[['"](--[\w-]+)['"]\]/g),
   ...matches(runtimeFiles, /setProperty\(\s*['"](--[\w-]+)['"]/g),
-]);
+]).filter((v) => !isBrandNamedVar(v));
 const dataAttributes = sorted([
   ...matches(cssFiles, /\[(data-[a-z][a-z0-9-]*)/g),
   ...matches(runtimeFiles, /(?:setAttribute|toggleAttribute|removeAttribute)\(\s*'(data-[a-z][a-z0-9-]*)'/g),
@@ -86,6 +98,12 @@ const cliVerbs = sorted([
   ...matches(cliFiles, /Usage: substrate ([a-z][a-z-]*)/g),
 ]);
 const cliFlags = matches(cliFiles, /(--[a-z][a-z-]*)/g);
+
+// Skill operation flags (skills/*/SKILL.md — e.g. the substrate-knowledge
+// skill's --build/--classify/--resolve/--audit/--explain). Known so a
+// `--flag` spelling in docs prose is not mistaken for a CSS variable; kept
+// out of cliCommands.flags, which stays the substrate binary's real surface.
+const skillFlags = matches(readAll(['skills/*/SKILL.md']), /(--[a-z][a-z-]*)/g);
 
 const enginePkg = JSON.parse(readFileSync(join(ENGINE, 'package.json'), 'utf8'));
 const npmScripts = sorted(Object.keys(enginePkg.scripts ?? {}));
@@ -150,6 +168,17 @@ for (const entry of loadAllBrandsWithPaths(join(ENGINE, 'src/brands'))) {
 const typesFiles = readAll(['src/kernel/system/types.ts']);
 for (const key of matches(typesFiles, /^\s+(?:readonly\s+)?['"]?([A-Za-z][A-Za-z0-9_-]*)['"]?\?*:\s/gm)) {
   configKeySet.add(key);
+}
+// Component and type configs (base configs only — brand override dirs are
+// excluded so no brand-chosen naming leaks in). Shipped role/state/mode/part
+// names and style properties are ground truth for docs quoting these files.
+for (const { text } of readAll(['src/components/*/config.yaml', 'src/types/*/config.yaml'])) {
+  collectKeys(yaml.load(text), configKeySet);
+}
+// The platform property schema: every authorable style property, including
+// ones no shipped config exercises yet.
+for (const { text } of readAll(['src/kernel/system/properties.yaml'])) {
+  collectKeys(yaml.load(text), configKeySet);
 }
 // Docs may spell any camelCase key in its authored kebab-case form.
 for (const key of [...configKeySet]) {
@@ -254,9 +283,9 @@ const manifest = {
       npmScripts,
     },
     cliFlags: {
-      provenance: 'flag spellings in packages/cli/bin/main.js and lib/setup-plan.js',
-      description: 'CLI flags, so `--flag` spellings in shell/inline code are not mistaken for CSS variables.',
-      exact: cliFlags,
+      provenance: 'flag spellings in packages/cli/bin/main.js and lib/setup-plan.js, plus skill operation flags in skills/*/SKILL.md',
+      description: 'CLI and skill-operation flags, so `--flag` spellings in shell/inline code and prose are not mistaken for CSS variables.',
+      exact: sorted([...cliFlags, ...skillFlags]),
     },
     engineExports: {
       provenance: 'Object.keys of the @substrate/engine barrel (src/index.ts), engine value import',
@@ -269,8 +298,8 @@ const manifest = {
       exact: nativeSymbols,
     },
     configKeys: {
-      provenance: 'shipped brand YAML configs (src/brands/**/config*.yaml), system.config.yaml, and merged BrandConfig objects from the engine brand loader',
-      description: 'Valid brand-config keys, both kebab-case as authored and camelCase as normalized. Children of open maps (intents, gradients, materials, ramps, presets levels, system) are brand-chosen names and are not enumerated.',
+      provenance: 'shipped brand YAML configs (src/brands/**/config*.yaml), system.config.yaml, merged BrandConfig objects from the engine brand loader, base component configs (src/components/*/config.yaml), type configs (src/types/*/config.yaml), and the platform property schema (src/kernel/system/properties.yaml)',
+      description: 'Valid config keys across brand, component, and type configs — kebab-case as authored and camelCase as normalized. Children of open maps (intents, gradients, materials, ramps, presets levels, system) are brand-chosen names and are not enumerated.',
       exact: sorted(configKeySet),
       openMaps: sorted(OPEN_MAPS),
     },

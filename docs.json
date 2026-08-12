@@ -50,7 +50,9 @@
             "group": "Tooling",
             "pages": [
               "tooling/cli",
-              "tooling/bloom"
+              "tooling/bloom",
+              "tooling/knowledge-base",
+              "tooling/agent-memory"
             ]
           },
           {
@@ -69,6 +71,13 @@
                   "multi-brand/inheritance"
                 ]
               }
+            ]
+          },
+          {
+            "group": "Component Config",
+            "pages": [
+              "component-config/overview",
+              "component-config/type-configs"
             ]
           },
           {
