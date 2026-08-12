@@ -7,7 +7,7 @@ description: "Substrate's web output is a layered CSS cascade of continuous prim
 import RuntimeInitExample from '/snippets/runtime-init-example.mdx';
 import MarkupOptInExample from '/snippets/markup-optin-example.mdx';
 
-Substrate's web output has two layers that work together. The **generated CSS** establishes a cascade built entirely from continuous scalars composed with `calc()`, and the **JavaScript runtime** solves APCA contrast against the actual surface and writes the results back as custom properties.
+Substrate's web output has two layers that work together. The **generated CSS** establishes a cascade built entirely from continuous scalars composed with `calc()`, and the **JavaScript runtime** solves APCA contrast against the actual surface and writes the results back as custom properties. APCA attribution and use restrictions: see [About APCA](/reference/apca-solver#about-apca).
 
 <Warning>
   A JavaScript runtime is required. The static CSS includes a baked no-JS snapshot so a server-rendered page paints accessibly at first paint, but that snapshot is an accessible floor covering the page surface under four preset combinations. Continuous scheme positions, CVD compensation, warmth, density, and scoped surfaces all need the runtime.

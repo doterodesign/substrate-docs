@@ -71,3 +71,15 @@
   the apply* helpers are only for keeping the LIVE vector on OS signals.
 - Writing "data-theme" literally anywhere (even to deny it) trips the gate;
   say "theme attribute".
+
+## APCA legal (UCS-530, 2026-08-12)
+- reference/apca-solver.mdx#about-apca carries APCA's required verbatim
+  prohibited-uses disclaimer — never paraphrase, reflow, or delete it; other
+  pages cross-reference the anchor instead of duplicating it.
+- The Myndex commercial-license conversation is in flight: never claim APCA
+  license status, permission, endorsement, or conformance certification
+  (no "licensed"/"certified"/"conformant"/Bronze/Silver claims). The Lc
+  size/weight floor table is Substrate's own construction, not an official
+  APCA artifact.
+- APCA = "Accessible Perceptual Contrast Algorithm" — the docs previously
+  said "Advanced"; don't reintroduce it.

@@ -6,11 +6,11 @@ description: "How Substrate's runtime solver derives foreground lightness with A
 
 import ApcaPolicy from '/snippets/generated/apca-policy.mdx';
 
-Substrate uses APCA — the Advanced Perceptual Contrast Algorithm — to compute the lightness of every foreground color **at runtime, per surface**. The result is a system where every foreground is derived to be legible against the actual background it sits on. You never hand-pick a text color, and you never run a contrast checker manually — contrast is what the solver *solves for*.
+Substrate uses APCA — the Accessible Perceptual Contrast Algorithm — to compute the lightness of every foreground color **at runtime, per surface**. The result is a system where every foreground is derived to be legible against the actual background it sits on. You never hand-pick a text color, and you never run a contrast checker manually — contrast is what the solver *solves for*.
 
 ## What Is APCA?
 
-APCA was developed by Andrew Somers and models how human vision perceives contrast between text or foreground elements and their background more accurately than the WCAG 2.x ratio formula. The legacy WCAG 2.x formula treats light and dark colors symmetrically and operates in sRGB luminance, which doesn't reflect how the eye actually adapts to luminance differences across the lightness range. APCA accounts for the spatial frequency of text (size and weight), the direction of polarity (light-on-dark vs. dark-on-light), and the non-linear response of human vision — producing contrast scores that align much more closely with perceived readability.
+APCA was developed by Andrew Somers of Myndex Perception Research (attribution and links in [About APCA](#about-apca) below) and models how human vision perceives contrast between text or foreground elements and their background more accurately than the WCAG 2.x ratio formula. The legacy WCAG 2.x formula treats light and dark colors symmetrically and operates in sRGB luminance, which doesn't reflect how the eye actually adapts to luminance differences across the lightness range. APCA accounts for the spatial frequency of text (size and weight), the direction of polarity (light-on-dark vs. dark-on-light), and the non-linear response of human vision — producing contrast scores that align much more closely with perceived readability.
 
 ## Why Substrate Uses APCA
 
@@ -51,4 +51,12 @@ There are no per-token Lc comments in the generated CSS — with runtime solving
 
 <Note>
   APCA is the candidate contrast method for WCAG 3.0, which is still in development. Substrate adopts it now for its perceptual accuracy — but WCAG 3.0 is not final, and Substrate's own kernel avoids claiming conformance ahead of the standard. Pair APCA targets with the CVD caveats on the [Color Vision](/modes/color-vision) page.
+</Note>
+
+## About APCA
+
+Substrate's contrast solving implements APCA (Accessible Perceptual Contrast Algorithm), created by Andrew Somers of Myndex Perception Research, base algorithm 0.0.98G-4g. APCA is the candidate contrast method for WCAG 3. For the reasoning behind the model, read [Why APCA](https://github.com/Myndex/SAPC-APCA/blob/master/documentation/WhyAPCA.md); the full documentation lives at the [APCA documentation hub](https://git.apcacontrast.com/).
+
+<Note>
+  APCA is a method for predicting text contrast on self-illuminated displays for web-based content. Some use-cases are prohibited by license, including the following: use in medical, clinical evaluation, human safety related, aerospace, transportation, automotive, military applications, are strictly prohibited without a specific license in writing granting such use.
 </Note>
