@@ -1,10 +1,10 @@
 ---
-title: "Substrate FAQ: Common Questions and Answers"
+title: "Substrate FAQ: Adopting and Integrating the System"
 sidebarTitle: "FAQ"
-description: "Answers to common questions about Substrate — how it differs from static token libraries, how to migrate, and how to integrate with Figma and other design tools."
+description: "Common questions about Substrate — comparing it to Style Dictionary, migrating, Figma integration, CVD support, and disabling modes."
 ---
 
-Below you'll find answers to the questions that come up most often when teams are evaluating or adopting Substrate. If your question isn't covered here, open a discussion in the Substrate repository or reach out to the Unknown Creatives team.
+Below you'll find answers to the questions that come up most often when teams are evaluating or adopting Substrate. If your question isn't covered here, open a discussion in the Substrate GitHub repository.
 
 <Accordion title="How is Substrate different from Style Dictionary or Tokens Studio?">
 Style Dictionary and Tokens Studio are excellent tools for managing and transforming static token values. Substrate sits one level earlier: instead of storing values, it stores intent and computes values. You feed Substrate a color hue and chroma — it figures out the correct lightness for every surface and every mode. The output can feed into Style Dictionary or other tooling if needed. Think of Substrate as the layer that eliminates the spreadsheet of hex values your team has been maintaining by hand.
@@ -20,6 +20,18 @@ Yes. You can run Substrate alongside an existing system to generate tokens for s
 
 <Accordion title="How do I integrate Substrate tokens with Figma?">
 Substrate generates a `brand.json` raw token file alongside its CSS output. Import it into Figma using the Tokens Studio plugin or Figma's native variable import. Map Substrate's semantic tokens to your Figma variable collections — surface tokens become background fills, on-surface tokens become text fills, and so on. When you rebuild Substrate after a brand config change, re-import the updated JSON to keep Figma in sync. Consider adding the `substrate build` step to your CI pipeline and committing `brand.json` to version control so Figma imports are always reproducible.
+</Accordion>
+
+<Accordion title="How does Substrate handle color vision deficiency (CVD)?">
+Add a `cvd` array to your brand config listing the CVD profiles you want to support: `"protanopia"`, `"deuteranopia"`, and/or `"tritanopia"`. Substrate generates a separate `data-theme` token set for each profile, adjusting hue and chroma values so that the color relationships that carry meaning in your UI remain distinguishable for users with each condition. Apply the appropriate `data-theme` value based on user preference — store the selection in user settings and apply it at the document root or component level:
+
+```json
+{
+  "cvd": ["protanopia", "deuteranopia", "tritanopia"]
+}
+```
+
+CVD token sets are generated on top of whatever `modes` you enable, so a user who needs both dark mode and a CVD adjustment will have a matching combined token set available.
 </Accordion>
 
 <Accordion title="What happens if I change my brand's primary hue?">

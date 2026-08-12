@@ -1,7 +1,7 @@
 ---
 title: "Using Substrate Tokens in Android and Kotlin Projects"
 sidebarTitle: "Android / Kotlin"
-description: "Substrate generates a Kotlin token file with color integers, dimension resources, and typography values for all modes. Integrate it into Jetpack Compose or View-based Android projects."
+description: "Substrate generates a Kotlin constants file with Color, Space, and TypeSize tokens. Integrate it into Jetpack Compose or View-based Android apps."
 ---
 
 Substrate compiles your design tokens into a single Kotlin file containing typed color, spacing, and typography constants for every display mode. The file slots directly into any Android project — it has no external dependencies beyond the Compose UI libraries you likely already use, and it works equally well with View-based layouts.
@@ -39,7 +39,9 @@ Import `SubstrateTokens` from your design package and reference its nested objec
 ```kotlin
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
 import com.acme.design.SubstrateTokens
 
 @Composable

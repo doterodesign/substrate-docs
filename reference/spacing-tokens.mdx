@@ -1,7 +1,7 @@
 ---
 title: "Spacing Token Reference: Space Scale CSS Variables"
 sidebarTitle: "Spacing Tokens"
-description: "Complete reference for Substrate's spacing tokens — all --space-* variables derived from your space-unit and density setting."
+description: "Complete reference for Substrate's spacing tokens — all --space-* variables, density multipliers, and how space-unit drives the whole scale."
 ---
 
 All spacing tokens are integer multiples of `space-unit`, the base unit you define in your brand config. At `density: default` the multiplier is applied directly — `--space-4` is exactly `4 × space-unit`. When you change `density` to `compact` or `comfortable`, every token in the scale shifts uniformly so your entire layout tightens or loosens without touching a single component. The table below shows resolved values for the two most common base units: 4px and 5px.

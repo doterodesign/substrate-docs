@@ -1,7 +1,7 @@
 ---
 title: "Defining Color Intent in Your Substrate Brand Config"
 sidebarTitle: "Color"
-description: "Substrate models color as intent, not as fixed hex values. Define hue and chroma — the system derives all lightness values using OKLCH and APCA contrast solving."
+description: "Model color as intent with OKLCH hue and chroma. Substrate derives all lightness values automatically using APCA contrast solving for light and dark modes."
 ---
 
 Substrate treats color as *intent*, not as a fixed palette. Rather than specifying hex values or manually crafting light and dark variants, you tell the system what a color is *for* — and provide just two perceptual parameters per role. Substrate handles the rest: lightness is never authored by hand. Instead, the APCA (Advanced Perceptual Contrast Algorithm) solver calculates the exact lightness value that achieves compliant contrast on whatever surface the color appears against.

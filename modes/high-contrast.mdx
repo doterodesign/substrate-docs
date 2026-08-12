@@ -1,7 +1,7 @@
 ---
-title: "High-Contrast Mode: Maximum Legibility from Your Brand Config"
+title: "High-Contrast Mode: Maximum Legibility via Your Brand Config"
 sidebarTitle: "High Contrast"
-description: "Substrate auto-generates high-contrast and high-contrast-dark themes by pushing APCA contrast targets to their maximum while preserving your brand's color identity."
+description: "Substrate auto-generates two high-contrast modes at APCA Lc 90+, preserving your brand hue and chroma — no manual overrides needed."
 ---
 
 High-contrast mode in Substrate is not an inversion filter and it does not fall back to black text on a white background. It is a full token recalculation: every foreground/background pair is re-solved with an APCA Lc 90+ target, using the same brand hues and chromas from your config. The result is a high-contrast theme that is still recognizably *your* product — just dramatically more legible.
@@ -21,7 +21,7 @@ Substrate generates two distinct high-contrast variants so you cover users acros
 
 ## How the recalculation works
 
-For each token in the standard light or dark set, Substrate re-runs APCA solving with the contrast target raised from the default (Lc 60 for body text) to Lc 90+. Hue and chroma are held constant; only lightness changes. This preserves the perceptual color identity of every role while maximising legibility.
+For each token in the standard light or dark set, Substrate re-runs APCA solving with the contrast target raised from the default (Lc 70 for body text) to Lc 90+. Hue and chroma are held constant; only lightness changes. This preserves the perceptual color identity of every role while maximising legibility.
 
 The following example shows the same brand primary color — hue 160, chroma 0.22 — at its default light-mode lightness versus its high-contrast lightness.
 

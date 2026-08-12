@@ -1,7 +1,7 @@
 ---
-title: "Using Substrate Tokens in iOS and Swift Projects"
+title: "Substrate Tokens for iOS: Swift Constants Integration"
 sidebarTitle: "iOS / Swift"
-description: "Substrate generates a Swift token file with Color, Font, and CGFloat constants for all modes. Add it to your Xcode project and reference tokens directly in SwiftUI or UIKit."
+description: "Substrate generates a Swift constants file with Color, Space, and TypeSize tokens. Add it to your Xcode project and reference tokens in SwiftUI or UIKit."
 ---
 
 Substrate compiles your design tokens into a single Swift file that exposes every color, spacing, typography, and motion value as typed constants. The file requires no third-party dependencies and works with both SwiftUI and UIKit — you reference tokens directly through the `SubstrateTokens` enum namespace without any additional setup.
@@ -61,7 +61,7 @@ button.titleLabel?.font = .systemFont(ofSize: SubstrateTokens.TypeSize.md)
 
 ## Mode support
 
-Substrate's Swift tokens use `UITraitCollection` and `NSTraitCollection` under the hood to return the correct resolved value for the device's current appearance. You do not need to write any conditional logic for standard light and dark modes.
+Substrate's Swift tokens use `UITraitCollection` under the hood to return the correct resolved value for the device's current appearance. You do not need to write any conditional logic for standard light and dark modes.
 
 ```swift
 // Returns the light or dark value automatically

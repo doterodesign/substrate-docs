@@ -21,7 +21,17 @@ The brand config is where your design system begins. Instead of maintaining spra
   "type-size-unit": "16px",
   "scale-ratio": 1.25,
   "motion-unit": "100ms",
-  "density": "default"
+  "density": "default",
+  "cvd": ["deuteranopia", "protanopia"],
+  "font": {
+    "sans": "Inter, system-ui, sans-serif",
+    "mono": "JetBrains Mono, Menlo, monospace"
+  },
+  "modes": ["light", "dark"],
+  "contrast-targets": {
+    "body-text": 75,
+    "ui-components": 60
+  }
 }
 ```
 
@@ -54,6 +64,22 @@ The brand config is where your design system begins. Instead of maintaining spra
 
   <Accordion title="density">
     Controls the spatial density of the spacing scale and component padding. Accepts `"compact"`, `"default"`, or `"comfortable"`. Switching density regenerates every spacing token without touching component code. Defaults to `"default"`.
+  </Accordion>
+
+  <Accordion title="cvd">
+    An optional array of color-vision deficiency simulations to run during the build. Accepted values include `"deuteranopia"`, `"protanopia"`, and `"tritanopia"`. When specified, Substrate validates that generated color tokens meet APCA contrast targets under each named simulation and fails the build if any token falls short.
+  </Accordion>
+
+  <Accordion title="font">
+    An optional map of font-family stacks. Define `sans` and/or `mono` to have Substrate generate `--font-sans` and `--font-mono` CSS custom properties and wire them into component recipes automatically. If omitted, Substrate falls back to system font stacks.
+  </Accordion>
+
+  <Accordion title="modes">
+    An optional array of color-scheme modes to generate output for. Defaults to `["light", "dark"]`. Substrate generates a separate token set for each listed mode and outputs them as `[data-theme]` attribute selectors in CSS.
+  </Accordion>
+
+  <Accordion title="contrast-targets">
+    An optional object that overrides the default APCA contrast thresholds Substrate uses when solving lightness values. Keys are semantic use-case names (e.g. `"body-text"`, `"ui-components"`) and values are target `Lc` scores. Use this when your product has stricter accessibility requirements than the built-in defaults.
   </Accordion>
 </AccordionGroup>
 

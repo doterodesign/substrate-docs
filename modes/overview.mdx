@@ -1,7 +1,7 @@
 ---
 title: "Display Modes: Automatic Accessibility Across Every Context"
 sidebarTitle: "Overview"
-description: "Substrate generates five display modes from your brand config — light, dark, dimmed, high-contrast, and high-contrast-dark — with APCA-verified contrast in each."
+description: "Substrate auto-generates five display modes — light, dark, dimmed, high-contrast, and high-contrast-dark — with APCA-verified contrast in each."
 ---
 
 Most design systems ship a single fixed token scale. If a user works in a dark environment, enables high-contrast mode, or has a color vision deficiency, that scale may fail them entirely. Substrate takes a different approach: from one brand config, it automatically generates five fully-accessible display modes so every user gets verified contrast regardless of their context, device, or visual needs.
@@ -12,7 +12,7 @@ Each mode is a complete, self-contained token set derived from the same brand co
 
 <AccordionGroup>
   <Accordion title="light — Standard light-background interface">
-    The default mode. Surfaces are near-white, foreground text is near-black, and accent colors are placed at a lightness that clears APCA Lc 60 on the lightest permitted background. This is the baseline from which all other modes are derived.
+    The default mode. Surfaces are near-white, foreground text is near-black, and accent colors are placed at a lightness that clears APCA Lc 70 on the lightest permitted background. This is the baseline from which all other modes are derived.
   </Accordion>
 
   <Accordion title="dark — Dark-background interface">
@@ -79,13 +79,13 @@ You do not need JavaScript to follow OS-level preferences. Substrate's CSS outpu
 ## Explore each mode
 
 <CardGroup cols={2}>
-  <Card title="Light & Dark" icon="circle-half-stroke" href="./light-dark">
+  <Card title="Light & Dark" icon="circle-half-stroke" href="/modes/light-dark">
     How Substrate derives light and dark token sets from a single color intent, including multi-stop hue and chroma shifts.
   </Card>
-  <Card title="High Contrast" icon="eye" href="./high-contrast">
+  <Card title="High Contrast" icon="eye" href="/modes/high-contrast">
     How APCA Lc 90+ recalculation works and how OS contrast preferences are wired automatically.
   </Card>
-  <Card title="Color Vision" icon="palette" href="./color-vision">
+  <Card title="Color Vision" icon="palette" href="/modes/color-vision">
     CVD presets for protanopia, deuteranopia, and tritanopia — one config flag generates a full alternate token set.
   </Card>
   <Card title="Brand Config" icon="sliders" href="/brand-config/overview">

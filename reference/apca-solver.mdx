@@ -1,7 +1,7 @@
 ---
-title: "APCA Contrast Solving in Substrate"
+title: "APCA Contrast Solver: How Substrate Targets Lc Scores"
 sidebarTitle: "APCA Solver"
-description: "Substrate uses APCA (Advanced Perceptual Contrast Algorithm) to derive foreground lightness values. Understand contrast targets, Lc scores, and when to adjust them."
+description: "How Substrate uses APCA to solve foreground lightness at build time. Covers Lc targets, the contrast scale, and overriding defaults safely."
 ---
 
 Substrate uses APCA — the Advanced Perceptual Contrast Algorithm — to compute the lightness of every foreground color token at build time. The result is a system where every on-color token is mathematically guaranteed to be legible against its paired background surface. You never need to run a contrast checker manually because contrast is enforced as part of the build.
@@ -23,7 +23,7 @@ APCA uses an Lc (lightness contrast) scale instead of a ratio. Lc values are dir
 | Lc 15 | Decorative / non-text elements |
 | Lc 30 | Large text (18px+ bold) |
 | Lc 45 | Normal-weight large text |
-| Lc 60 | Body text minimum |
+| Lc 60 | Body text minimum (APCA floor; Substrate defaults to Lc 70) |
 | Lc 75 | Small text, high importance |
 | Lc 90 | High-contrast mode minimum |
 
