@@ -1,48 +1,52 @@
 ---
-title: "Introduction to Substrate and Computed Design Tokens"
+title: "Introduction to Substrate and Runtime-Solved Design Tokens"
 sidebarTitle: "Introduction"
-description: "Substrate generates accessible design tokens from brand intent across every mode, platform, and user context — no hand-authored color ramps required."
+description: "Substrate solves accessible design tokens from brand intent at runtime — across a continuous range of user contexts, with no hand-authored color ramps."
 ---
 
-Substrate is a computed design system framework. It exists because static token libraries — the spreadsheets, Figma variables, and JSON files that define a fixed color ramp or a hand-tuned type scale — cannot describe the full range of users who interact with your product. Substrate replaces that static model with a declarative one: you describe what your brand *intends*, and the system derives every token value mathematically, for every user context, every time you build.
+Substrate is a generative config engine for color and design tokens — not a component library. It exists because static token libraries — the spreadsheets, Figma variables, and JSON files that define a fixed color ramp or a hand-tuned type scale — cannot describe the full range of users who interact with your product. Substrate replaces that static model with a declarative one: you describe what your brand *intends*, and a runtime solver derives every color's lightness mathematically, for the user context actually present.
 
 ## The Problem With Static Tokens
 
 Static design tokens store a value. `color-primary-500: #1A7F5A`. That value was probably chosen to look good in light mode, on a calibrated display, by someone with standard color vision. It may pass a WCAG 2.x contrast check against a white background. But it says nothing about:
 
-- **Dark mode** — the same hue at the same lightness often fails contrast checks on dark surfaces.
-- **Dimmed mode** — users on OLED displays or in low-light environments benefit from reduced luminance, which a static ramp doesn't accommodate.
-- **High-contrast mode** — users with low vision need foreground values that achieve significantly higher contrast, not a slightly bolder version of the same token.
+- **Dark surfaces** — the same hue at the same lightness often fails contrast on dark backgrounds, where APCA polarity flips.
+- **In-between states** — real preferences aren't binary. A comfortable low-light reading position sits *between* light and dark; a static ramp has no value there.
+- **High-contrast needs** — users with low vision need foregrounds solved to genuinely higher contrast targets, not a slightly bolder version of the same token.
 - **Color vision deficiency (CVD)** — a palette designed around green and red as signal colors fails a large portion of users without a CVD-aware remap.
+- **Density, type scale, and motion sensitivity** — spacing, sizing, and animation are preferences too, and ladders of fixed steps can't follow them continuously.
 
 Teams that care about these users end up maintaining parallel token sets — a light ramp, a dark ramp, a high-contrast ramp — all authored by hand, all drifting apart the moment the primary color changes.
 
 ## Substrate's Approach
 
-Substrate replaces fixed token values with *intent*. You declare the following in a single `substrate.config` file:
+Substrate replaces fixed token values with *intent*, declared in a YAML brand config:
 
-- **Color** — a primary hue and chroma expressed in OKLCH
-- **Space unit** — the base unit for your spacing scale (e.g. `4px`)
-- **Type size unit** — the base unit for your type scale (e.g. `16px`)
-- **Scale ratio** — the multiplier between steps on both scales (e.g. `1.25`)
-- **Motion unit** — the base duration for animation and transition tokens (e.g. `100ms`)
+- **Intents** — an open map of colors, each just an OKLCH `hue` and `chroma`. Only `brand` and `neutral` are required; declare as many custom intents as your product needs. Lightness is never authored.
+- **Typography** — font stacks, a base size in rem, and a modular `scale-ratio`.
+- **Space** — one spatial `unit` (px) that all spacing composes from.
+- **Motion** — one base duration and one easing curve.
+- **Elevation, shape, flexibility** — surface stepping, corner radius, and the bounds within which users may adjust each preference axis.
 
-From those inputs, Substrate calculates every downstream token value at build time. Color ramps are interpolated across the OKLCH color space, which produces perceptually uniform steps. Foreground colors are never hand-picked — they are mathematically derived by the APCA (Advanced Perceptual Contrast Algorithm) contrast solver, which finds the exact lightness value that achieves your target contrast against any given background.
+From those inputs, the pipeline emits solver inputs and per-platform artifacts, and a runtime kernel solves the rest: foreground colors are never hand-picked — the APCA (Advanced Perceptual Contrast Algorithm) solver finds the exact lightness that achieves the contrast target against the actual surface, for the user's exact position on a **continuous preference vector**: scheme, contrast, density, type scale, motion, warmth, and color vision. Named modes are just presets on that continuum. See [Core Concepts](/core-concepts#computed-vs-static-tokens) for the full model.
 
 ## Key Benefits
 
 <AccordionGroup>
   <Accordion title="Always-accessible contrast">
-    Every foreground token in every mode meets your contrast target by construction. You don't check contrast after authoring — the solver produces accessible values and nothing else.
+    Every foreground in every context meets its APCA target by construction — foreground Lc 75, borders Lc 50, focus rings Lc 60, scaled by the user's contrast preference. Shortfalls are reported explicitly, and a build-failing accessibility gate keeps every shipped brand honest.
   </Accordion>
-  <Accordion title="Automatic mode generation">
-    A single brand config produces five complete token sets: `light`, `dark`, `dimmed`, `high-contrast`, and `high-contrast-dark`. You don't maintain parallel files.
+  <Accordion title="Continuous adaptation, presets included">
+    One brand config serves the whole preference continuum. Named presets — `light`, `dark`, `dimmed`, `highContrast`, `darkHighContrast` — are convenience points, and users can sit anywhere between them. You don't maintain parallel files.
+  </Accordion>
+  <Accordion title="Color vision deficiency compensation">
+    CVD support is a runtime preference (`protan`, `deutan`, `tritan`, `achromat`, with continuous severity): intent hues are redistributed onto a CVD-safe arc before contrast solving, and achromat mode adds pattern overlays so meaning never rides on color alone.
   </Accordion>
   <Accordion title="Multi-brand from a single config model">
-    Multiple brands in one system share the same mathematical model. A new brand supplies its own color, space-unit, and scale-ratio — all accessibility behavior is inherited automatically.
+    Brand families share a base config; sub-brands author only deltas and inherit everything else through a deep-merge cascade. All accessibility behavior comes with the model.
   </Accordion>
   <Accordion title="Platform-agnostic output">
-    Every build target — Web (CSS custom properties), iOS (Swift constants), Android (Kotlin objects) — receives the same logical token values expressed in the native format for that platform.
+    Every target — Web (CSS + JS runtime), iOS (Swift, Display P3), Android (Kotlin/Compose), React Native, DTCG JSON for design tools, xcassets — derives from the same brand data.
   </Accordion>
 </AccordionGroup>
 
@@ -50,9 +54,9 @@ From those inputs, Substrate calculates every downstream token value at build ti
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Set up your first brand config and generate accessible tokens in four steps.
+    Vendor the engine, run substrate init, and initialize the runtime solver.
   </Card>
   <Card title="Core Concepts" icon="lightbulb" href="/core-concepts">
-    Dive deeper into color intent, APCA contrast solving, and cascading inheritance.
+    Dive deeper into color intent, runtime APCA solving, and cascading inheritance.
   </Card>
 </CardGroup>

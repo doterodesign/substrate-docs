@@ -1,68 +1,53 @@
 ---
 title: "Substrate FAQ: Adopting and Integrating the System"
 sidebarTitle: "FAQ"
-description: "Common questions about Substrate — comparing it to Style Dictionary, migrating, Figma integration, CVD support, and disabling modes."
+description: "Common questions about Substrate — comparing it to Style Dictionary, migrating, Figma integration via DTCG, CVD support, and per-component density."
 ---
 
 Below you'll find answers to the questions that come up most often when teams are evaluating or adopting Substrate. If your question isn't covered here, open a discussion in the Substrate GitHub repository.
 
 <Accordion title="How is Substrate different from Style Dictionary or Tokens Studio?">
-Style Dictionary and Tokens Studio are excellent tools for managing and transforming static token values. Substrate sits one level earlier: instead of storing values, it stores intent and computes values. You feed Substrate a color hue and chroma — it figures out the correct lightness for every surface and every mode. The output can feed into Style Dictionary or other tooling if needed. Think of Substrate as the layer that eliminates the spreadsheet of hex values your team has been maintaining by hand.
+Style Dictionary and Tokens Studio are excellent tools for managing and transforming static token values. Substrate sits one level earlier: instead of storing values, it stores intent and computes values. You feed Substrate a color hue and chroma — its runtime solver figures out the correct lightness for every surface, at every position on the continuous scheme and contrast axes. The DTCG output can feed into Style Dictionary or other tooling if needed. Think of Substrate as the layer that eliminates the spreadsheet of hex values your team has been maintaining by hand.
 </Accordion>
 
 <Accordion title="Do I need to hand-author any token values?">
-No. The brand config contains only intent: hue, chroma, dimensional units, and scale ratios. Substrate derives every token value from those inputs. The one exception is `font`, where you supply your font stack strings — because font choice is a brand decision that has no mathematical basis Substrate can infer.
+Almost none. Color is pure intent: hue and chroma per intent, with lightness always solver-derived. A handful of brand decisions have no mathematical basis Substrate could infer, so they are authored literals: the font stacks (`typography.heading-family` / `body-family` / `mono-family`), the easing curve (`motion.easing`), the base duration, corner radius (`shape.radius-base`), the spatial unit (`space.unit`), and the elevation steps. Gradient stops are the one place lightness itself is authored.
 </Accordion>
 
 <Accordion title="Can I use Substrate with an existing design system?">
-Yes. You can run Substrate alongside an existing system to generate tokens for specific parts of your UI — for example, using Substrate only for your color and spacing scales while keeping existing component-level tokens. The generated CSS custom properties integrate with any CSS-in-JS library, Tailwind, or plain CSS. Because Substrate's output is scoped to `data-theme` attributes and namespaced `--color-*` / `--space-*` properties, it is unlikely to collide with your existing token names.
+Yes. You can run Substrate alongside an existing system — for example, using it for color and adaptive behavior while keeping existing component tokens. The generated CSS custom properties integrate with any CSS-in-JS library, Tailwind, or plain CSS. Collisions are unlikely because Substrate's names are distinctly prefixed (`--ucs-*`, `--surface-*`) and its cascade is opt-in: only elements carrying `data-ucs` participate, and brand scoping rides on `data-brand`.
 </Accordion>
 
 <Accordion title="How do I integrate Substrate tokens with Figma?">
-Substrate generates a `brand.json` raw token file alongside its CSS output. Import it into Figma using the Tokens Studio plugin or Figma's native variable import. Map Substrate's semantic tokens to your Figma variable collections — surface tokens become background fills, on-surface tokens become text fills, and so on. When you rebuild Substrate after a brand config change, re-import the updated JSON to keep Figma in sync. Consider adding the `substrate build` step to your CI pipeline and committing `brand.json` to version control so Figma imports are always reproducible.
+Use the **DTCG output**: each brand emits W3C Design Tokens JSON per mode at `generated/brands/<brand>/<sub-brand>/dtcg/tokens.{light,dark,highContrast,darkHighContrast}.gen.dtcg.json`. Import those with the Tokens Studio plugin or Figma's native variable import, mapping each mode file to a Figma variable mode. When you regenerate after a brand config change, re-import to keep Figma in sync. The files are committed generation output, so imports are reproducible from version control.
 </Accordion>
 
 <Accordion title="How does Substrate handle color vision deficiency (CVD)?">
-Add a `cvd` array to your brand config listing the CVD profiles you want to support: `"protanopia"`, `"deuteranopia"`, and/or `"tritanopia"`. Substrate generates a separate `data-theme` token set for each profile, adjusting hue and chroma values so that the color relationships that carry meaning in your UI remain distinguishable for users with each condition. Apply the appropriate `data-theme` value based on user preference — store the selection in user settings and apply it at the document root or component level:
+CVD compensation is a **runtime preference**, not a build-time config: the preference vector carries `cvd: { type, severity }` where `type` is `protan`, `deutan`, `tritan`, or `achromat` and `severity` is continuous from 0 to 1. The kernel redistributes intent hues onto a CVD-safe arc (with a minimum separation between adjacent intents) before the APCA solve, and `achromat` adds chroma reduction plus pattern overlays so meaning never rides on color alone. Nothing is pre-generated per profile, and it composes freely with every other axis — dark + protan is just `{ scheme: 1, cvd: { type: 'protan', severity: 1 } }`.
 
-```json
-{
-  "cvd": ["protanopia", "deuteranopia", "tritanopia"]
-}
-```
-
-CVD token sets are generated on top of whatever `modes` you enable, so a user who needs both dark mode and a CVD adjustment will have a matching combined token set available.
+Honest limits, straight from the kernel: hue redistribution helps dichromats most and is weak for anomalous trichromats (the majority of CVD users); treat it as an aid, not a guarantee, and never as a substitute for non-color cues (WCAG 2.2 §1.4.1). See [Color Vision](/modes/color-vision).
 </Accordion>
 
 <Accordion title="What happens if I change my brand's primary hue?">
-Change the `hue` value in your brand config and run `substrate build`. All downstream token values — across every mode, every semantic role, and every platform output — are recomputed automatically. No other files need updating. The APCA solver re-derives lightness for the new hue, so contrast guarantees are maintained without any additional work on your part.
+Change `intents.brand.hue` in your brand's YAML config and regenerate (`npm run generate` in the engine checkout). All downstream values — across every mode, every intent, and every platform output — are recomputed, and the runtime solver re-derives lightness for the new hue, so contrast guarantees are maintained without any additional work on your part.
 </Accordion>
 
 <Accordion title="Does Substrate support custom density per component?">
-The `density` setting in your brand config sets a global density level. Component-level density overrides are not currently supported in the config. However, components can apply density by reading spacing tokens from a local element with a custom `data-density` attribute if you build that into your component library — for example, wrapping a compact table in `<div data-density="compact">` and applying a CSS rule that overrides `--space-unit` on that element.
+There is no per-component density config field, but density is a runtime variable, so scoped overrides are first-class: spacing composes as `calc(var(--density) * var(--scale) * var(--space-unit) * n)`, and **`--density` is the lever the engine itself varies** — override it on a subtree (`<div style="--density: 0.85">`) and everything inside tightens. Don't override `--space-unit`; that is the brand constant.
 </Accordion>
 
 <Accordion title="Can I disable specific generated modes?">
-Yes. Add a `modes` field to your brand config listing only the modes you want Substrate to generate:
-
-```json
-{
-  "brand": "acme",
-  "modes": ["light", "dark"]
-}
-```
-
-Substrate will skip the omitted modes entirely — no `data-theme` selectors, no Swift/Kotlin constants, no output files. Omitting high-contrast modes is not recommended for products serving users with visual accessibility needs.
+Modes are presets your brand authors under `presets.mode` — an open map of named levels, each a position on the continuous scheme/contrast axes. Author fewer levels and the pipeline bakes fewer per-mode artifacts (CSS, Swift, Kotlin, DTCG files exist per authored level). The continuous runtime is unaffected: users within your `flexibility` bounds can still occupy any position on the axes. Omitting high-contrast levels is not recommended for products serving users with visual accessibility needs.
 </Accordion>
 
 <Accordion title="How do I migrate from a hand-authored token system?">
-Start by identifying your existing semantic token roles — primary, surface, on-surface, error, and so on — and mapping them to Substrate's intent model. Replace your fixed hex values with OKLCH hue and chroma values. (A color picker that shows OKLCH values, or a conversion tool, makes this straightforward.) Run `substrate build` and compare the generated tokens against your existing values — expect some lightness differences, since APCA replaces whatever contrast approach you were using before. Migrate component by component, starting with the lowest-risk surfaces: background layers and borders first, then text colors, then interactive states. This incremental approach lets you ship progressively without a big-bang swap.
+Start by identifying your existing semantic roles — primary, surface, error, and so on — and mapping them to Substrate intents (`brand`, `neutral`, `danger`, plus custom intents for anything else). Replace your fixed hex values with OKLCH hue and chroma values (a color picker that shows OKLCH makes this straightforward). Regenerate and compare the output against your existing values — expect lightness differences, since APCA replaces whatever contrast approach you were using. Migrate component by component, starting with the lowest-risk surfaces: background layers and borders first, then text colors, then interactive states.
 </Accordion>
 
 <Accordion title="Does Substrate output tokens for iOS and Android?">
-Yes. Every build produces three output formats in parallel: CSS custom properties for web, Swift constants for iOS/macOS, and Kotlin values for Android. All three are generated from the same solved values, so your platforms stay in sync automatically. The Swift and Kotlin outputs use your `brand` identifier as the namespace — for example, `AcmeTokens.colorPrimary` in Swift.
+Yes — and more than that. Per brand, the pipeline emits CSS, **Swift** (per-mode `SubstrateSystemTokens` files in Display P3, plus kernel-interpreted component descriptors), **Kotlin/Compose** (mirror structure plus a generated Material `ColorScheme`), **DTCG JSON**, **React Native**, **xcassets**, and JSON conformance vectors. All derive from the same brand data, so platforms stay in sync automatically. See [iOS](/platforms/ios-swift) and [Android](/platforms/android-kotlin).
 </Accordion>
 
 <Accordion title="What color space does Substrate use internally?">
-Substrate performs all color math in OKLCH — a perceptually uniform color space that separates lightness (L), chroma (C), and hue (H) into independent axes. Perceptual uniformity means that equal numerical changes in lightness produce equal perceived changes across the full lightness range. This property is what makes APCA solving tractable: Substrate can do a binary search on the L axis to hit an Lc target without hue or chroma drift. The generated CSS uses `oklch()` function syntax, which is supported in all modern browsers.
+Substrate performs all color math in OKLCH — a perceptually uniform color space that separates lightness (L), chroma (C), and hue (H) into independent axes. Perceptual uniformity means that equal numerical changes in lightness produce equal perceived changes across the full lightness range. This property is what makes APCA solving tractable: Substrate can do a binary search on the L axis to hit an Lc target without hue or chroma drift. In the output, component CSS composes `oklch()` colors from the solver primitives, while the baked per-mode token files emit plain hex for maximum compatibility.
 </Accordion>

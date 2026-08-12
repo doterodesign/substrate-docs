@@ -1,39 +1,37 @@
 ---
-title: "Substrate: Computed Design System Framework for Teams"
-description: "Substrate calculates accessible design tokens from brand intent. Declare your brand intent and get always-accessible output for Web, iOS, and Android."
+title: "Substrate: Runtime-Solved Design System Engine for Teams"
+description: "Substrate solves accessible design tokens from brand intent at runtime. Declare hue and chroma per intent and get APCA-solved, continuously adaptive output for Web, iOS, and Android."
 ---
 
-Substrate is a computed design system framework that replaces static token libraries with mathematical intent. Instead of hand-authoring color ramps, type scales, and spacing values, you declare what your brand *means* — a primary hue, a base space unit, a type size, a scale ratio — and Substrate calculates every downstream token value using OKLCH color space and an APCA contrast solver. The result is a complete, always-accessible token set output for Web (CSS variables), iOS (Swift), and Android (Kotlin).
+Substrate is a generative design-token engine that replaces static token libraries with mathematical intent — explicitly **not a component library**. Instead of hand-authoring color ramps and parallel mode palettes, you declare what your brand *means* — a hue and chroma per intent, a spatial unit, a type ratio — and Substrate's runtime kernel solves every color's lightness with APCA against the actual surface it sits on, driven by a continuous preference vector (scheme, contrast, density, type scale, motion, warmth, color vision). The result is an always-accessible, continuously adaptive system delivered for Web (CSS + a small JS runtime), iOS (Swift), Android (Kotlin/Compose), and design tooling (DTCG).
 
 ## Explore Substrate
 
 <CardGroup cols={2}>
   <Card title="Introduction" icon="book-open" href="/introduction">
-    Learn why Substrate exists, how it models brand intent, and what makes computed tokens different from static libraries.
+    Learn why Substrate exists, how it models brand intent, and what makes runtime-solved tokens different from static libraries.
   </Card>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Create your first brand config, run the compiler, and ship accessible tokens in four steps.
+    Vendor the engine, run substrate init, wire the aliases, and initialize the runtime solver.
   </Card>
   <Card title="Brand Config" icon="sliders" href="/brand-config/overview">
-    Explore every field available in `substrate.config` — color, space-unit, type-size-unit, scale-ratio, and more.
+    Explore the YAML brand config — the open intents map, typography, flexibility bounds, and presets.
   </Card>
   <Card title="Modes & Accessibility" icon="circle-half-stroke" href="/modes/overview">
-    Understand how Substrate auto-generates light, dark, dimmed, and high-contrast modes from a single config.
+    Understand the continuous preference vector, its named presets, and the accessibility guarantees behind them.
   </Card>
 </CardGroup>
 
 ## How It Works
 
-Substrate's build pipeline turns brand intent into platform-ready, accessible tokens in three steps.
-
 <Steps>
   <Step title="Declare your brand intent">
-    Write a `substrate.config` file that captures your brand's color hue and chroma, base space unit, type size unit, scale ratio, and motion unit. This is the only file you author by hand.
+    Author a YAML brand config: an open map of intents, each just a hue and chroma — lightness is never authored. Add your spatial unit, type ratio, motion, elevation, and the flexibility bounds users may adjust within.
   </Step>
-  <Step title="Run the compiler">
-    Substrate reads your config and calculates every token value — color ramps, contrast-safe foregrounds, spacing scales, type scales, and motion values — using OKLCH interpolation and APCA contrast solving.
+  <Step title="Generate solver inputs and artifacts">
+    The pipeline compiles the CSS cascade, component style descriptors, and per-mode baked artifacts for every brand — plus Swift, Kotlin, DTCG, and React Native outputs.
   </Step>
-  <Step title="Import platform output">
-    Substrate emits a CSS variables file for Web, a Swift constants file for iOS, and a Kotlin object for Android. Drop the output into your project and start using tokens immediately.
+  <Step title="Solve at runtime">
+    A small kernel (JS on the web; Swift and Kotlin ports on mobile) solves APCA contrast per surface under the user's preference vector and writes the results as `--ucs-*` variables. Change a preference and the whole interface re-solves — no rebuild.
   </Step>
 </Steps>
