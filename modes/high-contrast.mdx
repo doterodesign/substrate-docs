@@ -4,7 +4,7 @@ sidebarTitle: "High Contrast"
 description: "High contrast in Substrate is a continuous multiplier over the APCA target policy, not a separate palette. Hue and chroma are preserved; only the solved lightness moves."
 ---
 
-High contrast in Substrate is not an inversion, not a black-and-white fallback, and not a separate palette. It is one axis of the preference vector — `contrastFactor` — that **multiplies every APCA target** before the solver runs. The brand's hues and chromas are untouched; only the lightness the solver lands on changes.
+High contrast in Substrate is not an inversion, not a black-and-white fallback, and not a separate palette. It is one axis of the preference vector — `contrastFactor` — that **multiplies every APCA target** before the solver runs. The brand's hues and chromas are untouched; only the lightness the solver lands on changes. APCA attribution and use restrictions: see [About APCA](/reference/apca-solver#about-apca).
 
 That distinction matters in practice: a high-contrast Substrate interface still looks like your product, because the only thing that moved is how far apart the foreground and background sit on the L axis.
 

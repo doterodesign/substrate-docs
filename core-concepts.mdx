@@ -77,7 +77,7 @@ OKLCH is perceptually uniform, meaning equal numeric steps produce equal perceiv
 
 WCAG 2.x contrast ratios are based on relative luminance and a single formula: `(L1 + 0.05) / (L2 + 0.05)`. This formula is known to produce misleading results for text on mid-tone backgrounds, thin typefaces, and small text sizes. It treats all contrast the same regardless of context.
 
-**APCA** (Advanced Perceptual Contrast Algorithm) replaces this model. APCA calculates a signed lightness contrast value — **Lc** — that accounts for polarity (is the text light-on-dark or dark-on-light?), spatial frequency (font size and weight), and the perceptual characteristics of the human visual system.
+**APCA** (Accessible Perceptual Contrast Algorithm) replaces this model. APCA calculates a signed lightness contrast value — **Lc** — that accounts for polarity (is the text light-on-dark or dark-on-light?), spatial frequency (font size and weight), and the perceptual characteristics of the human visual system. APCA attribution and use restrictions: see [About APCA](/reference/apca-solver#about-apca).
 
 Substrate runs the APCA solve **at runtime**, per surface. The process works like this:
 
