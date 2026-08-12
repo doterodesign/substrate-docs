@@ -1,0 +1,81 @@
+// Tests for the ground-truth manifest generator. These run only when a
+// Substrate checkout is available (SUBSTRATE_REPO); docs CI runs the checker
+// against the committed manifest and never needs the engine.
+//
+// Sentinel lists live HERE, not in the manifest (UCS-1129 Testing Decisions):
+// a generated manifest must include identifiers the audits verified as real
+// and exclude the audits' known fabrications.
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { readFileSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const ENGINE = process.env.SUBSTRATE_REPO;
+const skip = ENGINE ? false : 'SUBSTRATE_REPO not set — generator tests need an engine checkout';
+
+const SCRIPT = new URL('../scripts/generate-manifest.ts', import.meta.url).pathname;
+
+function generate(outPath) {
+  // cwd must be the engine checkout: the engine barrel resolves its own
+  // @substrate/* aliases through the checkout's tsconfig.
+  execFileSync(
+    join(ENGINE, 'node_modules/.bin/tsx'),
+    [SCRIPT, ENGINE, outPath],
+    { stdio: 'pipe', cwd: ENGINE },
+  );
+  return readFileSync(outPath, 'utf8');
+}
+
+test('two consecutive runs are byte-identical', { skip }, () => {
+  const dir = mkdtempSync(join(tmpdir(), 'manifest-'));
+  const a = generate(join(dir, 'a.json'));
+  const b = generate(join(dir, 'b.json'));
+  assert.equal(a, b);
+});
+
+test('manifest includes sentinel identifiers and excludes known fabrications', { skip }, () => {
+  const dir = mkdtempSync(join(tmpdir(), 'manifest-'));
+  const manifest = JSON.parse(generate(join(dir, 'm.json')));
+  const c = manifest.categories;
+
+  // Provenance of the whole artifact
+  assert.match(manifest.engineCommit, /^[0-9a-f]{40}$/);
+
+  // Real identifiers, per the audit reports
+  for (const v of ['--ucs-brand-hue', '--space-unit', '--density', '--effective-ratio', '--ctx-surface-l']) {
+    assert.ok(c.cssVariables.exact.includes(v), `missing css var ${v}`);
+  }
+  for (const a of ['data-ucs', 'data-mode', 'data-brand']) {
+    assert.ok(c.dataAttributes.exact.includes(a), `missing data attribute ${a}`);
+  }
+  assert.deepEqual(
+    [...c.cliCommands.verbs].sort(),
+    ['add', 'adopt', 'artifact', 'init', 'setup', 'upgrade'],
+  );
+  for (const k of ['light', 'dark', 'dimmed', 'highContrast', 'darkHighContrast']) {
+    assert.ok(k in c.presets.values, `missing preset ${k}`);
+  }
+  for (const e of ['updateAllVars', 'syncBrandToCssVars', 'syncPrefsToCssVars', 'defaultPreferences', 'BRAND_REGISTRY']) {
+    assert.ok(c.engineExports.exact.includes(e), `missing engine export ${e}`);
+  }
+  for (const s of ['SubstrateSystemTokens', 'SubstrateSystemTokenSet', 'SubstrateKernel']) {
+    assert.ok(c.nativeSymbols.exact.includes(s), `missing native symbol ${s}`);
+  }
+  assert.equal(c.apcaPolicy.values.foregroundLc, 75);
+  assert.equal(c.apcaPolicy.values.borderLc, 50);
+  assert.equal(c.apcaPolicy.values.focusRingLc, 60);
+  assert.ok(c.configKeys.exact.includes('intents'), 'missing config key intents');
+  assert.ok(c.importAliases.exact.includes('@substrate/engine'));
+
+  // Known fabrications must be absent
+  assert.ok(!c.dataAttributes.exact.includes('data-theme'));
+  assert.ok(!c.cliCommands.verbs.includes('build'));
+  assert.ok(!c.cliCommands.verbs.includes('audit'));
+  for (const fake of ['--color-primary', '--type-size-md', '--space-4', '--motion-fast', '--ease-standard']) {
+    assert.ok(!c.cssVariables.exact.includes(fake), `fabrication present: ${fake}`);
+  }
+  assert.ok(!c.nativeSymbols.exact.includes('SubstrateTokens'));
+});

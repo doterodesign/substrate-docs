@@ -1,0 +1,9 @@
+{
+  "name": "substrate-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check:docs": "node scripts/check-docs.mjs"
+  }
+}

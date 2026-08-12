@@ -1,0 +1,17 @@
+name: docs-accuracy
+on:
+  push:
+  pull_request:
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Checker unit tests (generator tests self-skip without an engine checkout)
+      - run: npm test
+      # The ground-truth accuracy gate: every documented identifier must exist
+      # in the committed manifest (UCS-1129)
+      - run: npm run check:docs
