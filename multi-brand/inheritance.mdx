@@ -1,78 +1,96 @@
 ---
-title: "Brand Inheritance and Workspace-Level Defaults in Substrate"
+title: "Brand Family Inheritance and the Deep-Merge Cascade"
 sidebarTitle: "Inheritance"
-description: "Set shared defaults at the workspace level and override them per brand. Substrate merges configs using a predictable cascade: workspace → brand."
+description: "A sub-brand config holds only its deltas. The two layers combine by recursive deep merge, so partial objects merge field by field — and the validator flags anything a sub-brand restates."
 ---
 
-When you run multiple brands from one workspace, most of them share the same foundational decisions: base spacing, scale ratio, motion timing, density, and CVD simulation presets. Repeating those values in every brand config introduces drift — one brand gets updated, the others fall behind. Substrate's inheritance model lets you declare those shared values once at the workspace level and override only what genuinely differs per brand.
+A brand family exists so that shared decisions live in exactly one file. The family's `config.global.yaml` is the foundation; each sub-brand's `config.yaml` holds **only what differs**. The two layers combine by a recursive deep merge, which is what makes deltas-only authoring possible: a sub-brand can override one field inside a nested object and inherit the rest of it.
 
-## The cascade
+## The two layers
 
-Substrate resolves the effective configuration for each brand using a two-level cascade:
-
-1. **Workspace defaults** — values set in the `defaults` block of `substrate.workspace.json` apply to every brand in the workspace.
-2. **Brand config** — values in a brand's `substrate.config.json` override the workspace default for that field.
-
-Any field not specified in a brand config falls back to the workspace default. Any field not specified in either level falls back to Substrate's built-in system defaults.
-
-## Setting workspace-level defaults
-
-Add a `defaults` block to `substrate.workspace.json` to establish shared values across all brands:
-
-```json
-{
-  "brands": ["brands/acme", "brands/nova", "brands/pulse"],
-  "output": "./dist/tokens",
-  "defaults": {
-    "space-unit": "4px",
-    "scale-ratio": 1.25,
-    "motion-unit": "100ms",
-    "density": "default",
-    "cvd": ["protanopia", "deuteranopia"]
-  }
-}
+```
+src/brands/delta/config.global.yaml      →  parent (shared foundation)
+src/brands/delta/skymiles/config.yaml    →  child (deltas only)
 ```
 
-- **`space-unit`** — base spacing unit shared across all brands unless overridden.
-- **`scale-ratio`** — type scale multiplier. Brands that need a tighter or looser typographic scale override this individually.
-- **`motion-unit`** — base duration from which all motion tokens are derived.
-- **`density`** — default density tier. Individual brands or components can shift density, but this sets the baseline.
-- **`cvd`** — the CVD simulation presets Substrate validates contrast against during every build. Setting this at the workspace level ensures every brand meets the same color-vision-deficiency requirements automatically.
+Later layers win, per leaf. The merged result is stamped with the family slug `{parent}-{sub}` — `delta-skymiles` — which is what appears in generated CSS as `[data-brand="delta-skymiles"]`.
 
-## Overriding defaults in a brand config
+## Partial objects merge
 
-A brand only needs to declare values that differ from the workspace defaults. In this example, the `nova` brand uses a tighter type scale than the workspace default but inherits everything else:
+This is the central rule, and the one most likely to surprise you if you have used systems where an override replaces the whole object. **An object in the child merges recursively into the object in the parent.** It does not replace it.
 
-```json
-{
-  "brand": "nova",
-  "type-size-unit": "15px",
-  "scale-ratio": 1.2,
-  "color": {
-    "primary": { "hue": 260, "chroma": 0.22 }
-  }
-}
+The shipped SkyMiles config is the canonical demonstration. Its parent declares the brand intent in full:
+
+```yaml
+# src/brands/delta/config.global.yaml
+intents:
+  brand:
+    hue: 15
+    chroma: 0.216
 ```
 
-`nova` sets its own `type-size-unit` and `scale-ratio`. Every other field — `space-unit`, `motion-unit`, `density`, and `cvd` — is inherited from the workspace defaults without any extra work.
+And the child overrides one field of it:
 
-## Effective value resolution
+```yaml
+# src/brands/delta/skymiles/config.yaml
+name: Delta Air Lines - SkyMiles
 
-The table below shows how workspace defaults and brand overrides combine to produce the effective value Substrate uses during the build:
+intents:
+  brand:
+    chroma: 0.220        # hue: 15 inherited from the parent
+  medallion-gold:
+    hue: 51
+    chroma: 0.116
+  skymiles-navy:
+    hue: 216
+    chroma: 0.141
 
-| Field | Workspace Default | Nova Override | Effective Value |
-|---|---|---|---|
-| `space-unit` | `4px` | _(not set)_ | `4px` |
-| `type-size-unit` | _(not set)_ | `15px` | `15px` |
-| `scale-ratio` | `1.25` | `1.2` | `1.2` |
-| `motion-unit` | `100ms` | _(not set)_ | `100ms` |
+typography:
+  heading-family: "'Whitney Condensed', Whitney, Verdana, system-ui, sans-serif"
+```
 
-The CVD presets (`protanopia`, `deuteranopia`) set at the workspace level apply to all brands during every build. You never need to repeat them in individual brand configs — every brand gets validated against those simulations automatically.
+The merged `intents.brand` is `{ hue: 15, chroma: 0.220 }`. SkyMiles never restates the hue. Likewise, its `typography` block overrides only `heading-family` — `body-family`, `base-font-size`, `scale-ratio`, `fluid`, and `density` all come from the parent untouched, and `medallion-gold` is simply added to the inherited intent roster.
+
+Delta Cargo shows the same merge at three different depths at once. It overrides `intents.brand` entirely (both fields), `intents.neutral.chroma` alone, `typography.scale-ratio` alone, `motion.duration-base` alone (keeping the family's `linear` easing), and inside `presets` it adjusts individual mode levels' `scheme` values while leaving each level's `contrast-factor` inherited.
+
+## The full merge table
+
+Applied per key of the child layer:
+
+| Child value | Result |
+|---|---|
+| An object, where the parent value is also an object | Deep-merged recursively |
+| `null` | **Deletes** the key from the merged result |
+| An array | Replaces the parent array wholesale — never concatenated or index-merged |
+| A scalar, or any type change | Replaces the parent value |
+
+Two consequences are worth stating plainly. `null` is the **only** delete signal — there is no separate unset or remove keyword, so a sub-brand that needs to drop an inherited intent or gradient sets that key to `null`. And arrays replace, which matters most for `scheme-track` stop lists: a child supplying a track supplies the whole track.
+
+Key normalization runs before the merge, so a parent authoring `heading-family` and a child authoring `headingFamily` merge as the same key. (Authoring both spellings side by side inside one object is an error, not a silent win for one of them.)
+
+## Deltas-only is enforced, not just encouraged
+
+The cascade validator walks every family and flags each leaf in a sub-brand config whose value structurally equals what the parent already provides. Comparison is deep and by value, so an object or array that merely matches the parent's content is caught even though it is a different reference. Genuine overrides are never flagged, and `null` deletes are not leaves so they are never flagged either.
+
+Each finding names the brand, the config path, and the redundant key path, so a config that has drifted into duplication tells you exactly which lines to delete.
 
 <Warning>
-  Any field set in a brand config fully overrides the workspace default for that field. There is no merging of sub-fields. If a brand sets `color.primary`, it must supply the complete intent object including both `hue` and `chroma`. Partial objects are not merged with workspace or system defaults.
+  Redundant leaves are worse than noise. A value copied into a sub-brand no longer tracks the family — the next time the parent's value changes, that one sub-brand silently keeps the old one. That is the drift the family structure exists to prevent, and it is why the validator treats duplication as a finding rather than a style preference.
 </Warning>
 
+## What inheritance does not include
+
+There is no workspace layer above the family, no `defaults` block, and no system-wide brand defaults file. The cascade is exactly two layers deep: family and sub-brand. A flat brand has no cascade at all — its single `config.yaml` is the whole configuration, and it must therefore be complete, including the required `intents.brand` and `intents.neutral`.
+
 <Tip>
-  Start by setting your most conservative values at the workspace level — the smallest `space-unit` and the lowest `scale-ratio` that any brand in your portfolio uses. Then let individual brands increase those values as needed. This ensures no brand accidentally ships a denser or more compact layout than intended, and gives you a safe minimum baseline to audit against.
+  When starting a new sub-brand, write nothing and generate. Then add fields one at a time until it looks right. Starting from a copy of the parent guarantees a config full of redundant leaves you will have to delete.
 </Tip>
+
+<CardGroup cols={2}>
+  <Card title="Adding a Brand" icon="circle-plus" href="/multi-brand/adding-a-brand">
+    Walk through creating a sub-brand and a flat brand end to end.
+  </Card>
+  <Card title="Brand Config Overview" icon="sliders" href="/brand-config/overview">
+    The schema every layer is authored against, and the key normalization rule.
+  </Card>
+</CardGroup>

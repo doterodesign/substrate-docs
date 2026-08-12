@@ -1,0 +1,186 @@
+---
+title: "Integration: The Alias Contract, the Runtime, and Scoped Surfaces"
+sidebarTitle: "Integration"
+description: "How client code reaches Substrate: three public import aliases with an engine-swap guarantee, the three-call runtime sequence, the Surface component, and the cascade opt-in."
+---
+
+This page is the reference for how your application code connects to Substrate at runtime — the import boundary, the call sequence that drives the solver, the one React component Substrate ships, and how elements opt into the cascade.
+
+For the setup steps that get Substrate into your repo in the first place — vendoring the engine, running `substrate init`, wiring bundler configs — see the [Quickstart](/quickstart).
+
+---
+
+## The three public aliases
+
+Client code imports Substrate through exactly three aliases. This is the entire import contract:
+
+| Alias | Resolves to | Use it for |
+|---|---|---|
+| `@substrate/engine` | `substrate/engine/src/index.ts` | The runtime engine API — solver, sync functions, types |
+| `@substrate/components/*` | `substrate/components/*` | Client-owned components (`Surface`, catalog entries) |
+| `@substrate/generated/*` | `substrate/generated/*` | Pipeline output — generated CSS, registries, intermediates |
+
+<Note>
+  **The engine-swap guarantee.** These three specifiers are the supported client API, and swapping the engine underneath never changes your import statements. A verified sealed-engine setup resolves `@substrate/engine` to a prebuilt runtime bundle rather than to source, using the same specifier — so the application never holds a path into engine internals.
+</Note>
+
+`substrate init` writes the aliases into `tsconfig.json` automatically and prints the block for bundler and test configs, which it won't edit because they're arbitrary code. Re-print them any time with `substrate init --report-aliases`.
+
+### What is not a client path
+
+Two patterns look plausible and are not supported:
+
+- **`@substrate/engine/*`** (with the wildcard) reaches deep engine subpaths. It exists as an escape hatch for Substrate's own demo, is classified internal, and must not be copied into client code.
+- **Relative paths into engine internals**, such as `../../../kernel/color/surface`, couple your code to one engine layout. This is exactly the dependency the Surface component was refactored to remove.
+
+The rule in one line: reach all engine behavior through `@substrate/engine`, keep `./` imports to your own colocated files, and use nothing else to leave your directory. If a seam you need is missing from the barrel, the fix is to add it to the barrel rather than to route around it.
+
+---
+
+## The runtime call sequence
+
+Substrate requires a JavaScript runtime on the web. Load the generated CSS barrel once, then make three calls in order:
+
+```ts
+import '@substrate/generated/global/css/index.gen.css';
+import {
+  syncBrandToCssVars, syncPrefsToCssVars, updateAllVars,
+  defaultPreferences, BRAND_REGISTRY,
+} from '@substrate/engine';
+
+const brand = BRAND_REGISTRY[0];
+const prefs = defaultPreferences();
+
+syncBrandToCssVars(brand);
+syncPrefsToCssVars(prefs);
+updateAllVars(brand, prefs);
+```
+
+Each call has a distinct job:
+
+**`syncBrandToCssVars(brand)`** sets `data-brand="<slug>"` on the root element and writes the brand's static custom properties — typography families and fluid sizing, shape, motion durations, spacing units, effects. Call it once per brand, and again only if the brand changes.
+
+**`syncPrefsToCssVars(prefs)`** writes the raw preference axes to the root: `--scheme`, `--contrast-factor`, `--density`, `--type-scale-factor`, `--motion-factor`, and `--cvd-achromat`. It also toggles the `data-cvd-achromat` attribute, which is what activates the pattern overlays. Everything the generated CSS composes with `calc()` reacts to this call alone.
+
+**`updateAllVars(brand, prefs)`** does the expensive work: it derives the base and elevated surfaces, runs the warmth → cvd → apca pipeline, and writes the solved per-intent `--ucs-*` primitives to `:root`.
+
+On any preference change, repeat the last two:
+
+```ts
+prefs.scheme = 1;
+prefs.contrastFactor = 1.3;
+
+syncPrefsToCssVars(prefs);
+updateAllVars(brand, prefs);
+```
+
+### Following OS preferences
+
+The runtime ships helpers that read OS media queries into the vector and keep listening. Each returns a cleanup function that detaches its listeners:
+
+```ts
+import {
+  applyReducedMotion, applyContrastPreference, applyForcedColorsCheck,
+  applyCvdFromStorage, persistCvd,
+} from '@substrate/engine';
+
+const onChange = () => {
+  syncPrefsToCssVars(prefs);
+  updateAllVars(brand, prefs);
+};
+
+const cleanups = [
+  applyReducedMotion(prefs, onChange),      // prefers-reduced-motion → motionFactor 0
+  applyContrastPreference(prefs, onChange), // prefers-contrast more → 1.3, less → 0.85
+  applyForcedColorsCheck(prefs, onChange),  // forced-colors: active disables CVD
+  applyCvdFromStorage(prefs, onChange),     // restore a saved CVD preference
+];
+
+// on teardown
+cleanups.forEach((stop) => stop());
+```
+
+`prefers-color-scheme` is deliberately not in this list — scheme is a continuous axis and often an in-app choice, so you decide whether the OS drives it. See [Light & Dark](/modes/light-dark#moving-along-the-axis).
+
+---
+
+## Opting into the cascade
+
+Two attributes connect an element to the solved values:
+
+```html
+<div data-ucs data-mode="brand">Solved brand surface</div>
+<div data-ucs data-mode="danger">Solved danger surface</div>
+```
+
+**`data-ucs`** opts the element into the Substrate cascade. It takes no value.
+
+**`data-mode`** selects one or more **semantic intent roles**. It is matched with `~=` against a space-separated token list, so an element can carry several at once — `data-mode="neutral card"` is a neutral-intent card. The shipped system roles are `brand`, `neutral`, `danger`, `warning`, `success`, `info`, and `beta`, with brand-specific roles generated alongside them.
+
+<Warning>
+  `data-mode` is a role selector, not a theme switch. It does not change light/dark or contrast — those are preference axes on the vector. There is no theme attribute in Substrate at all.
+</Warning>
+
+The remaining runtime-written attributes are `data-brand` (set by `syncBrandToCssVars`), `data-cvd-achromat` (toggled by `syncPrefsToCssVars` for pattern overlays), and `data-cvd-sim` (set only by the CVD simulation devtool).
+
+---
+
+## The Surface component
+
+`Surface` is the **only React component Substrate ships**, and it exists for a specific reason: a nested surface needs its foregrounds re-solved against *its own* background rather than the page's, and that re-solve can only happen in JavaScript.
+
+The root-level `updateAllVars` solves against the page surface. Put a card with a distinctly different background inside that page and the inherited `--ucs-*-fg-l` values are solved against the wrong thing — contrast that was correct at the root is no longer correct locally. `Surface` fixes this by computing scoped custom properties and applying them as inline styles, which override `:root` for everything inside.
+
+```tsx
+import { SubstrateSurface } from '@substrate/components/surface/web/surface';
+
+<SubstrateSurface brand={brand} prefs={prefs} elevation="elevated" role="card">
+  <h2>Correctly solved against this card, not the page</h2>
+  <p>Descendants inherit the scoped primitives.</p>
+</SubstrateSurface>
+```
+
+Props: `brand` and `prefs` are required; `elevation` selects the surface derivation (default `elevated`); `role` maps to the `data-mode` role and accepts `card`, `panel`, `inset`, or `none` (default `card`); `surface` overrides the computed color outright; and `pipeline` lets you pass a prepared pipeline in. Standard `div` attributes pass through.
+
+Internally it derives its surface, calls `computeScopedIntentVars`, and renders a `div` carrying `data-ucs`, a `data-mode` role, and the scoped variables as inline styles.
+
+### Sharing the prepared pipeline
+
+The warmth and CVD transforms depend only on brand and preferences, not on the surface, so they can be computed once and reused across every surface on the page. The component caches the last prepared pipeline automatically. When you're rendering many surfaces and want explicit control, prepare it yourself and pass it down:
+
+```ts
+import { preparePipeline } from '@substrate/engine';
+
+const pipeline = preparePipeline(brand, prefs);
+// pass as the `pipeline` prop to each SubstrateSurface
+```
+
+### Component ownership
+
+`Surface` is a **client-owned catalog asset**, not an engine-owned runtime component. Once scaffolded into your repo it is yours: edit it, restyle it, fork it. Substrate supplies the first copy and records provenance, but the file belongs to you.
+
+The engine-owned boundary is `@substrate/engine` — kernel code, runtime helpers, config loading, generators, and validators. Components consume engine behavior only through that public barrel. This is why `Surface` imports `baseSurface`, `deriveSurface`, `computeScopedIntentVars`, and `preparePipeline` from `@substrate/engine` rather than reaching into kernel paths, and it's the same contract your own components should follow.
+
+Scaffold more catalog content as you need it:
+
+```bash
+substrate add --list
+substrate add components/badge --generate-command "npm run generate"
+```
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Setup from zero: vendoring the engine, running init, and verifying the wiring.
+  </Card>
+  <Card title="Web" icon="css3" href="/platforms/web">
+    The generated CSS layers, the custom property namespaces, and the calc-composed model.
+  </Card>
+  <Card title="Core Concepts" icon="lightbulb" href="/core-concepts">
+    The runtime-solver mental model behind all of this.
+  </Card>
+  <Card title="Modes Overview" icon="sliders" href="/modes/overview">
+    The preference vector the runtime call sequence is driving.
+  </Card>
+</CardGroup>

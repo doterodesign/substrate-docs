@@ -1,101 +1,141 @@
 ---
-title: "Light and Dark Modes: Token Generation in Substrate"
+title: "The Scheme Axis: Light, Dark, and Everything Between"
 sidebarTitle: "Light & Dark"
-description: "Substrate derives light and dark tokens from the same color intent. No parallel ramps, no separate token files — one config, two fully-accessible themes."
+description: "Light and dark are the two endpoints of one continuous scheme axis. Substrate evaluates intent tracks at the current position and re-solves APCA contrast against the actual surface."
 ---
 
-Light and dark mode are the two baseline themes in Substrate. Every color intent you define in your brand config automatically produces both a light-mode and a dark-mode token set. There are no parallel ramp files to maintain, no manual light/dark overrides to write, and no risk of the two sets drifting out of sync — Substrate derives both from the same source of truth and verifies APCA contrast in each.
+Light and dark in Substrate are not two token sets. They are the two ends of a single continuous axis, `scheme`, that runs from `0` (light) to `1` (dark). Every position in between is valid and produces solved values, which is what makes `dimmed` (`scheme: 0.65`) a real mode rather than a hand-authored third palette.
 
-## How intent maps to two token sets
+Because there is only one axis and one solve, the two ends cannot drift apart. There is no dark override file to forget to update.
 
-When Substrate reads a color intent from your config, it runs APCA contrast solving twice: once with a light-mode surface as the background, and once with a dark-mode surface. The result is a pair of `oklch()` values that share your brand's hue and chroma but land at the lightness required to meet the contrast target on their respective surface.
+---
 
-This means you never specify "the dark-mode value of primary." You specify what primary *means* — its hue, its chroma, its contrast role — and Substrate derives the right lightness for each mode.
+## What moves along the axis
 
-## Multi-stop intent: shifting hue and chroma between modes
+Three things change as `scheme` moves from 0 to 1:
 
-Some colors benefit from a subtle hue or chroma shift between light and dark. A neutral, for example, might read cleanest as a slightly cool blue-gray in light mode but feel more comfortable as a slightly warm gray in dark mode. Substrate supports this with a multi-stop intent: define both ends of the shift, and the system interpolates across the lightness range in each mode.
+1. **Surface lightness.** The base page surface is derived from the brand at the current position, and elevated surfaces are derived from that base.
+2. **Intent hue and chroma**, but only if the intent declares a scheme track. A plain intent keeps constant hue and chroma at every position; a tracked intent interpolates between its stops. Track stops are pinned at continuous positions, so evaluation at `0.65` is an interpolation, not a snap to an endpoint.
+3. **APCA polarity.** Near the light end, the solver searches for a dark foreground against a light surface. Near the dark end it searches for a light foreground. The target Lc is the same magnitude; the direction flips.
 
-```json
-"neutral": {
-  "light": { "hue": 210, "chroma": 0.02 },
-  "dark":  { "hue": 220, "chroma": 0.04 }
+What does *not* change is the contrast policy. Foreground targets Lc 75, borders Lc 50, and focus rings Lc 60 at every scheme position — see [High Contrast](/modes/high-contrast) for the one axis that does scale those targets.
+
+<Note>
+  Lightness is never authored. An intent declares hue and chroma; the solver owns L. That is why moving along the scheme axis cannot break contrast — each position gets its own binary search for a lightness that hits the target against the surface actually in play.
+</Note>
+
+---
+
+## Moving along the axis
+
+Set `scheme` and re-sync. There is no attribute to toggle:
+
+```ts
+import {
+  syncPrefsToCssVars, updateAllVars, defaultPreferences, BRAND_REGISTRY,
+} from '@substrate/engine';
+
+const brand = BRAND_REGISTRY[0];
+const prefs = defaultPreferences();  // scheme: 0
+
+prefs.scheme = 1;            // dark
+syncPrefsToCssVars(prefs);
+updateAllVars(brand, prefs);
+```
+
+A toggle is just a two-value special case of a continuous control:
+
+```ts
+prefs.scheme = prefs.scheme === 0 ? 1 : 0;
+syncPrefsToCssVars(prefs);
+updateAllVars(brand, prefs);
+```
+
+To follow the operating system instead of an in-app control, read the media query and write the axis:
+
+```ts
+const mql = window.matchMedia('(prefers-color-scheme: dark)');
+
+function follow() {
+  prefs.scheme = mql.matches ? 1 : 0;
+  syncPrefsToCssVars(prefs);
+  updateAllVars(brand, prefs);
+}
+
+follow();
+mql.addEventListener('change', follow);
+```
+
+---
+
+## What the runtime writes
+
+`syncPrefsToCssVars` writes the raw axis values to the root element, including `--scheme` itself, so CSS that composes from continuous scalars reacts immediately. `updateAllVars` runs the APCA solve and writes the per-intent primitives — five numeric properties per intent:
+
+```css
+--ucs-brand-hue
+--ucs-brand-chroma
+--ucs-brand-fg-l       /* solved: foreground Lc 75 against the context surface */
+--ucs-brand-border-l   /* solved: border Lc 50 */
+--ucs-brand-surface-l  /* derived accent surface */
+```
+
+These are **primitives, not finished colors**. The generated CSS composes `oklch()` values from them with `calc()`, which is what lets a single set of numbers drive an entire cascade. An element selects which intent's primitives to use through its `data-mode` role:
+
+```css
+[data-mode~="brand"] {
+  --intent-hue:       var(--ucs-brand-hue);
+  --intent-chroma:    var(--ucs-brand-chroma);
+  --intent-fg-l:      var(--ucs-brand-fg-l);
+  --intent-border-l:  var(--ucs-brand-border-l);
+  --intent-surface-l: var(--ucs-brand-surface-l);
 }
 ```
 
-Substrate interpolates between these values as it walks the lightness scale for each mode and uses APCA to pick the correct lightness for each surface role. The result is a neutral ramp that feels intentional in both contexts rather than mechanically inverted.
+---
 
-<Note>
-  You are not required to define both ends. If you supply a single hue and chroma, Substrate uses those values in both modes and only recalculates lightness. Multi-stop intent is opt-in for cases where the color needs to breathe differently across modes.
-</Note>
+## Baked light and dark artifacts
 
-## Generated CSS output
-
-Given the multi-stop neutral config above, Substrate produces output similar to the following. Lightness values are solved by APCA — you do not set them in config.
+Alongside the runtime path, the pipeline bakes static per-mode files for the moments before JavaScript runs and for native platforms. These hold resolved hex values rather than primitives — from `generated/brands/magic-patterns/css/tokens.light.gen.css`:
 
 ```css
 :root {
-  --color-surface:           oklch(99% 0.005 210);
-  --color-surface-secondary: oklch(96% 0.01  210);
-  --color-on-surface:        oklch(12% 0.02  210);
-}
-
-[data-theme="dark"] {
-  --color-surface:           oklch(8%  0.02  220);
-  --color-surface-secondary: oklch(12% 0.02  220);
-  --color-on-surface:        oklch(92% 0.01  220);
+  --ucs-surface-surface: #f4f5f8;
+  --ucs-surface-text: #0b0b0d;
+  --ucs-surface-border: #717174;
+  --ucs-brand-surface: #6022f3;
+  --ucs-brand-text: #652dfb;
+  --ucs-brand-border: #9084ff;
 }
 ```
 
-Notice that `--color-on-surface` flips from a near-black (12% lightness) in light mode to a near-white (92% lightness) in dark mode — not because you declared it, but because APCA solving found those values to be the minimum lightness that clears the target contrast on their respective surfaces.
+Each brand gets `tokens.light.gen.css`, `tokens.dark.gen.css`, `tokens.highContrast.gen.css`, and `tokens.darkHighContrast.gen.css`. There is no `tokens.dimmed.gen.css` — a mid-track position has no endpoint to bake, so dimmed exists only through the runtime or a native kernel port.
 
-## Automatic OS preference detection
+On top of those, each brand's CSS carries the no-JS snapshot: the same four presets emitted on `[data-brand="<slug>"]` under `prefers-color-scheme` and `prefers-contrast` media queries. That snapshot covers the page surface at first paint; scoped surfaces and continuous positions need the runtime. See [Modes Overview](/modes/overview#the-no-js-floor).
 
-Substrate's CSS output includes an `@media (prefers-color-scheme: dark)` block so the dark theme activates automatically when the user's operating system is in dark mode, with no JavaScript required.
+---
 
-```css
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --color-surface:           oklch(8%  0.02  220);
-    --color-surface-secondary: oklch(12% 0.02  220);
-    --color-on-surface:        oklch(92% 0.01  220);
-    /* ... all dark token values ... */
-  }
-}
+## Authoring intent across the axis
+
+Most intents need nothing beyond a hue and chroma — the solver handles both ends. When a color needs to shift character between the endpoints, declare a scheme track in the brand YAML:
+
+```yaml
+intents:
+  neutral:
+    hue: 210
+    chroma: 0.02
+    scheme-end: { hue: 220, chroma: 0.04 }
 ```
 
-The `:root:not([data-theme])` selector ensures the media query only applies when no explicit theme has been set. As soon as you write a `data-theme` attribute to the element, the explicit value takes over.
+`scheme-end` is the shorthand for a two-stop track; a full `scheme-track` list gives you stops at arbitrary positions. Letting chroma rise toward the dark end is a common way to keep a color's perceived character stable, since colors read as less saturated against dark surfaces. Full grammar in [Core Concepts](/core-concepts#color-intent) and the [Color config reference](/brand-config/color).
 
-<Tip>
-  You can override the OS-detected theme by setting `data-theme` explicitly on any element — useful for theme-switcher controls. Write `data-theme="light"` to `<html>` to lock the interface to light mode regardless of the user's system preference, or write `data-theme="dark"` to force dark. The attribute can also be scoped to a subtree, so a documentation site, for example, can render code examples in dark mode while the surrounding UI follows the OS preference.
-</Tip>
+---
 
-## Checking contrast in generated tokens
-
-Every token pair in Substrate's output has a corresponding APCA Lc value in the generated token manifest. You can inspect these values to verify that a token meets your project's minimum contrast requirement.
-
-<Steps>
-  <Step title="Build your token output">
-    Run the Substrate CLI to generate your token files. The manifest is written alongside the CSS output.
-
-    ```bash
-    substrate build
-    ```
-  </Step>
-  <Step title="Open the token manifest">
-    The manifest is a JSON file located at the output path you configured. Each token entry includes a `contrast` field:
-
-    ```json
-    {
-      "token": "--color-on-surface",
-      "mode": "dark",
-      "value": "oklch(92% 0.01 220)",
-      "background": "--color-surface",
-      "contrast": { "apca": 91.4 }
-    }
-    ```
-  </Step>
-  <Step title="Audit against your target">
-    Compare the `apca` value against your project's minimum. Substrate defaults to Lc 70 for body text and Lc 60 for large text and UI components. Raise these targets in your config if your project requires stricter compliance.
-  </Step>
-</Steps>
+<CardGroup cols={2}>
+  <Card title="Modes Overview" icon="sliders" href="/modes/overview">
+    The full seven-axis preference vector and the five named presets.
+  </Card>
+  <Card title="High Contrast" icon="circle-up" href="/modes/high-contrast">
+    The contrast axis that scales the Lc policy independently of scheme.
+  </Card>
+</CardGroup>

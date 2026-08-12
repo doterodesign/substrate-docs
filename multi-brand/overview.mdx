@@ -1,63 +1,86 @@
 ---
-title: "Multi-Brand Architecture with a Single Design System"
+title: "Multi-Brand Architecture on a Single Substrate Engine"
 sidebarTitle: "Overview"
-description: "Run multiple brands from one Substrate workspace. Each brand gets its own token set, sharing the same mathematical foundation and accessibility rules."
+description: "Six brand families ship in one Substrate engine. Brands are directories, discovery is a filesystem scan, and every brand inherits the same solver guarantees from its first generation."
 ---
 
-Managing multiple brands from a single design system is one of the hardest problems in design infrastructure. Without a deliberate architecture, teams end up maintaining parallel token files that drift apart over time, enforcing accessibility rules inconsistently, and duplicating work every time a new brand is introduced. Substrate solves this by separating the mathematical engine from the brand-specific inputs — you supply color intents and dimensional units per brand, and Substrate handles the rest.
+Running many brands from one design system usually decays the same way: parallel token files drift, accessibility rules get enforced inconsistently, and every new brand is a fresh integration. Substrate avoids that by keeping the mathematics in one engine and reducing a brand to a config. The solver, the preference vector, the component descriptors, and the accessibility gate are shared; a brand supplies intent and policy.
 
-## How it works
+## What a brand actually owns
 
-Every brand in a Substrate workspace shares the same core engine: APCA-based contrast solving, mode generation, density behavior, and motion scaling all run identically for every brand. What changes between brands is limited to their color intents (hue, chroma, and semantic role) and dimensional units (base spacing, type size, and scale ratio). This means a new brand inherits correct accessibility behavior from its very first build, with no extra configuration required.
+More than color. A brand config carries its intents, but also its elevation steps, `shape.radius-base`, typography families and ratio, `motion.duration-base` and `easing`, `space.unit`, its `flexibility` policy bounding every user preference axis, its `presets` (including which mode and density levels exist at all), plus optional `gradients`, `ramps`, `materials`, and `system` overrides. See the [brand config overview](/brand-config/overview) for the full schema.
+
+What a brand does *not* own is the solving. APCA lightness resolution, the scheme axis, CVD and warmth compensation, and the build-failing accessibility gate run identically for every brand. That is why a new brand inherits correct contrast behavior from its first generation rather than earning it.
 
 ## Project structure
 
-A multi-brand Substrate workspace follows a predictable directory layout. Each brand lives in its own subdirectory under `brands/`, containing a single config file. The workspace file at the root registers all brands and sets the shared output path.
+Brands live in directories under `src/brands/`. There are two shapes, and the directory contents decide which one applies.
 
 ```
-substrate/
-├── brands/
-│   ├── acme/
-│   │   └── substrate.config.json
-│   ├── nova/
-│   │   └── substrate.config.json
-│   └── pulse/
-│       └── substrate.config.json
-└── substrate.workspace.json
+src/brands/
+├── delta/                      # brand family
+│   ├── config.global.yaml      # shared foundation
+│   ├── booking/config.yaml     # deltas only
+│   ├── cargo/config.yaml
+│   ├── corporate/config.yaml
+│   ├── premium/config.yaml
+│   └── skymiles/config.yaml
+├── stripe/
+│   ├── config.global.yaml
+│   └── marketing/config.yaml
+└── magic-patterns/             # flat brand
+    └── config.yaml
 ```
 
-## Workspace file
+A directory containing `config.global.yaml` is a **family**: each subdirectory holding a `config.yaml` becomes its own brand, with the merged slug `{parent}-{sub}` — `delta-skymiles`, `delta-booking`. A directory containing only `config.yaml` is a **flat brand**, and its slug is the directory name.
 
-The `substrate.workspace.json` file is the entry point for your multi-brand setup. It lists every brand by its directory path and specifies where compiled token output should land.
+Six brand families ship in the engine: Delta, Descript, DraftKings, Google, Stripe, and Magic Patterns.
 
-```json
-{
-  "brands": ["brands/acme", "brands/nova", "brands/pulse"],
-  "output": "./dist/tokens"
-}
-```
+<Note>
+  There is no workspace file, no brand registry, and no registration step. Discovery is a filesystem scan of the brands directory — a brand exists because its directory does. Adding one is covered in [Adding a Brand](/multi-brand/adding-a-brand).
+</Note>
 
-## Building tokens
+## Generating
 
-To compile tokens for every brand in one pass, run the build command with the `--all` flag:
+Generation runs from the engine checkout and covers every discovered brand in one pass:
 
 ```bash
-substrate build --all
+npm run generate
 ```
 
-To build a single brand in isolation — useful during development or in brand-scoped CI pipelines — pass the brand name directly:
+Narrower runs are available for iteration: `npm run generate:tokens`, `npm run generate:ramps`, `npm run generate:descriptors`, and `npm run generate:doc-views` each handle one artifact family, and most accept a target suffix such as `npm run generate:tokens:css` or `npm run generate:tokens:swift`. Every one has a `:check` variant that verifies the committed output matches what the current configs would produce, which is what CI runs.
 
-```bash
-substrate build --brand acme
+<Warning>
+  Substrate has no build verb and no per-brand build flag — you regenerate the corpus, not a single brand. The `substrate` CLI is a separate consumer-side onboarding tool whose verbs are `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact`.
+</Warning>
+
+## Per-brand output
+
+Output lands under `generated/brands/<family>/<sub>/`, one subdirectory per target. For `delta-skymiles`:
+
+```
+generated/brands/delta/skymiles/
+├── css/            # brand.gen.css + tokens.{light,dark,highContrast,darkHighContrast}.gen.css
+├── swift/          # brand.gen.swift, index.gen.swift, system.<mode>.gen.swift
+├── compose/        # Kotlin — same per-mode shape as Swift
+├── dtcg/           # DTCG-format design tokens
+├── json/           # conformance vectors
+├── react-native/
+├── xcassets/       # Xcode asset catalog
+└── docs/           # generated component documentation views
 ```
 
-Each build writes platform-ready output (CSS, Swift, Kotlin, and JSON) into a brand-namespaced subdirectory under the configured output path.
+Globally shared artifacts — the continuous scalar expressions, text roles, component descriptors — live under `generated/global/` and are not duplicated per brand. Every generated file carries a `.gen.` marker in its name and a `DO NOT EDIT` header. Changes belong in the brand YAML.
+
+## Why families are worth using
+
+A family exists so that shared decisions live in one file. Updating `src/brands/delta/config.global.yaml` propagates to all five Delta sub-brands on the next generation; adding an intent there gives every sub-brand that intent automatically. A sub-brand's own config stays small — SkyMiles is roughly thirty lines of genuine divergence over a shared foundation — and the validator actively flags any line in it that merely restates what it already inherits.
 
 <CardGroup cols={2}>
-  <Card title="Adding a Brand" icon="circle-plus" href="/multi-brand/adding-a-brand">
-    Create a new brand config file and register it in your workspace in five steps.
-  </Card>
   <Card title="Inheritance" icon="arrow-down-to-bracket" href="/multi-brand/inheritance">
-    Set workspace-level defaults and override them per brand using a predictable cascade.
+    The deep-merge contract, null-delete semantics, and why sub-brand configs contain only deltas.
+  </Card>
+  <Card title="Adding a Brand" icon="circle-plus" href="/multi-brand/adding-a-brand">
+    Create a directory, write a config, generate — with no registration step in between.
   </Card>
 </CardGroup>

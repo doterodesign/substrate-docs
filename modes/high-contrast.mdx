@@ -1,100 +1,119 @@
 ---
-title: "High-Contrast Mode: Maximum Legibility via Your Brand Config"
+title: "High Contrast: Scaling the Lc Policy with contrastFactor"
 sidebarTitle: "High Contrast"
-description: "Substrate auto-generates two high-contrast modes at APCA Lc 90+, preserving your brand hue and chroma — no manual overrides needed."
+description: "High contrast in Substrate is a continuous multiplier over the APCA target policy, not a separate palette. Hue and chroma are preserved; only the solved lightness moves."
 ---
 
-High-contrast mode in Substrate is not an inversion filter and it does not fall back to black text on a white background. It is a full token recalculation: every foreground/background pair is re-solved with an APCA Lc 90+ target, using the same brand hues and chromas from your config. The result is a high-contrast theme that is still recognizably *your* product — just dramatically more legible.
+High contrast in Substrate is not an inversion, not a black-and-white fallback, and not a separate palette. It is one axis of the preference vector — `contrastFactor` — that **multiplies every APCA target** before the solver runs. The brand's hues and chromas are untouched; only the lightness the solver lands on changes.
 
-## Two high-contrast modes
+That distinction matters in practice: a high-contrast Substrate interface still looks like your product, because the only thing that moved is how far apart the foreground and background sit on the L axis.
 
-Substrate generates two distinct high-contrast variants so you cover users across both light and dark preferences.
+---
 
-<CardGroup cols={2}>
-  <Card title="high-contrast" icon="sun">
-    Built on a light base. Surfaces remain near-white and foreground tokens are darkened until they clear Lc 90 on their background. Activates automatically via `@media (prefers-contrast: more)` when the user's OS preference is light.
-  </Card>
-  <Card title="high-contrast-dark" icon="moon">
-    Built on a dark base. Surfaces remain near-black and foreground tokens are lightened to Lc 90+. Serves users who need both a dark interface and maximum legibility — a combination most systems leave unaddressed.
-  </Card>
-</CardGroup>
+## The policy and the multiplier
 
-## How the recalculation works
+The engine's APCA policy is fixed and named. Three targets, all measured in APCA Lc against the context surface:
 
-For each token in the standard light or dark set, Substrate re-runs APCA solving with the contrast target raised from the default (Lc 70 for body text) to Lc 90+. Hue and chroma are held constant; only lightness changes. This preserves the perceptual color identity of every role while maximising legibility.
+| Target | Base Lc | What it governs |
+|---|---|---|
+| Foreground | **75** | Text and icon colors |
+| Border | **50** | Borders and dividers |
+| Focus ring | **60** | Focus indicators |
 
-The following example shows the same brand primary color — hue 160, chroma 0.22 — at its default light-mode lightness versus its high-contrast lightness.
+`contrastFactor` scales all three together. It runs from **0.75 to 1.5**, defaults to `1`, and is bounded per brand by the `flexibility.contrast` range in the brand config — a brand can narrow how far its users may push the axis.
 
-```css
-/* Default light */
-[data-theme="light"] {
-  --color-primary: oklch(62% 0.18 160); /* APCA Lc 70 on surface */
-}
+The two high-contrast presets both set it to **1.3**:
 
-/* High contrast */
-[data-theme="high-contrast"] {
-  --color-primary: oklch(30% 0.22 160); /* APCA Lc 92 on surface */
-}
+```ts
+highContrast:     { scheme: 0, contrastFactor: 1.3 }
+darkHighContrast: { scheme: 1, contrastFactor: 1.3 }
 ```
 
-The hue stays at 160 — the green-leaning brand color your users recognise — but the lightness drops from 62% to 30% so that the contrast against a near-white surface exceeds Lc 90. No manual override required.
+At 1.3×, the foreground target moves from Lc 75 to roughly **Lc 97.5**, and borders from Lc 50 to Lc 65. These are computed targets, not a fixed floor — there is no "Lc 90 mode" in the engine. Because contrast and scheme are independent axes, high contrast composes with any scheme position, including mid-track ones the presets don't name.
 
 <Note>
-  Chroma may increase slightly in high-contrast mode, as shown above (0.18 → 0.22). Substrate allows a small chroma lift when it helps the solving algorithm reach the target lightness without pushing outside the sRGB gamut. You can disable this behaviour in your config by setting `"highContrast.chromaLift": false`.
+  Contrast is a root-level preference scalar, not a per-subtree attribute. You do not mark a container as high-contrast. What *is* scoped is the surface a solve runs against: a nested surface re-solves its foregrounds against its own background, at whatever `contrastFactor` is currently set.
 </Note>
 
-## Automatic OS preference detection
+---
 
-Substrate includes `@media (prefers-contrast: more)` in its CSS output. When the user has enabled "Increase Contrast" (macOS/iOS) or "High contrast" (Windows) in their system settings, the high-contrast theme activates automatically — no JavaScript, no client-side detection needed.
+## Setting it
+
+Like every axis, you set the number and re-sync:
+
+```ts
+import {
+  syncPrefsToCssVars, updateAllVars, defaultPreferences, BRAND_REGISTRY,
+} from '@substrate/engine';
+
+const brand = BRAND_REGISTRY[0];
+const prefs = defaultPreferences();
+
+prefs.contrastFactor = 1.3;  // the highContrast preset value
+syncPrefsToCssVars(prefs);
+updateAllVars(brand, prefs);
+```
+
+Intermediate values are legitimate. `1.15` is a real, solvable preference — presets are just the labelled stops.
+
+---
+
+## Following the operating system
+
+The runtime ships a helper that maps the OS contrast preference onto the axis and keeps listening for changes. It handles **both** directions:
+
+```ts
+import { applyContrastPreference } from '@substrate/engine';
+
+const stop = applyContrastPreference(prefs, () => {
+  syncPrefsToCssVars(prefs);
+  updateAllVars(brand, prefs);
+});
+
+// later, to detach the media-query listeners
+stop();
+```
+
+- `prefers-contrast: more` → `contrastFactor` becomes **1.3**
+- `prefers-contrast: less` → `contrastFactor` becomes **0.85**
+
+The `less` direction is easy to overlook. Users who find high contrast uncomfortable — a common need for some forms of visual sensitivity and dyslexia — are served by the same axis running the other way, which is precisely why contrast is continuous rather than a boolean.
+
+A related but separate signal is `forced-colors: active` (Windows High Contrast). There the OS supplies the palette outright, so the runtime disables CVD compensation and lets the system colors through rather than competing with them.
+
+---
+
+## What the no-JS floor covers
+
+Two of the four baked snapshots are the high-contrast ones, gated on `prefers-contrast: more`:
 
 ```css
 @media (prefers-contrast: more) {
-  :root:not([data-theme]) {
-    --color-primary: oklch(30% 0.22 160);
-    /* ... all high-contrast token values ... */
-  }
+  [data-brand="magic-patterns"] { /* highContrast: scheme 0, cf 1.3 */ }
 }
 
-@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --color-primary: oklch(88% 0.20 160);
-    /* ... all high-contrast-dark token values ... */
-  }
+@media (prefers-color-scheme: dark) and (prefers-contrast: more) {
+  [data-brand="magic-patterns"] { /* darkHighContrast: scheme 1, cf 1.3 */ }
 }
 ```
 
-The combined media query for `high-contrast-dark` checks both contrast and color-scheme preferences, so a user who prefers dark mode *and* increased contrast gets the correct variant automatically.
+That covers a server-rendered first paint at the page surface. Any other `contrastFactor` — including `prefers-contrast: less` at 0.85, and any user-chosen intermediate value — needs the runtime, as do nested surfaces. The snapshot is the accessible floor, not the whole model.
 
-<Note>
-  You can activate high-contrast mode manually by setting `data-theme="high-contrast"` on any container element — not just `<html>`. This is useful for individual UI sections that need extra legibility regardless of the user's system preference: an error banner, a data table in a dense dashboard, or an accessibility-focused component library that ships its own contrast guarantee.
-</Note>
+---
 
-## Combining high-contrast with other modes
+## When a target can't be met
 
-Because `data-theme` can be scoped to any element, you can mix modes within a single page. A common pattern is to render the main application in `dark` mode while ensuring that critical alert regions always use `high-contrast-dark`.
+The solver does not silently pass. It binary-searches the OKLCH lightness that hits the scaled target, and when the gamut runs out before the target is reached it records the shortfall as an `unmetLc` value on the solution rather than pretending it succeeded.
 
-```html
-<html data-theme="dark">
-  <main>
-    <!-- inherits dark tokens -->
-  </main>
+At generation time this is enforced: the pipeline runs an accessibility gate across the whole brand corpus and fails the build on shortfalls, with output naming the count and kind of failure. Pushing `contrastFactor` toward 1.5 on a brand with very high chroma is the usual way to hit this — the fix belongs in the brand config, either by widening `flexibility.contrast` bounds deliberately or by adjusting the intent's chroma. See the [APCA solver reference](/reference/apca-solver).
 
-  <aside data-theme="high-contrast-dark">
-    <!-- always maximum contrast, regardless of outer theme -->
-  </aside>
-</html>
-```
+---
 
-<Tip>
-  Use the scoped `data-theme` approach to progressively enhance legibility in the parts of your UI where errors, warnings, or critical status information appears. Your users who rely on high-contrast mode at the OS level are already served automatically — this technique lets you extend the same benefit to users who have not set a system-level preference.
-</Tip>
-
-## Verifying contrast in high-contrast output
-
-Run `substrate audit` after building to get a full report of APCA Lc values across all modes, including both high-contrast variants. Any token pair that does not meet the target for its mode is flagged as a violation.
-
-```bash
-substrate audit --mode high-contrast
-```
-
-The audit output includes the token name, its computed APCA Lc value, the target, and the background token it was evaluated against — giving you everything you need to trace a violation back to the brand config value that caused it.
+<CardGroup cols={2}>
+  <Card title="Light & Dark" icon="circle-half-stroke" href="/modes/light-dark">
+    The scheme axis that composes with contrast, and what the runtime writes.
+  </Card>
+  <Card title="Color Vision" icon="eye" href="/modes/color-vision">
+    CVD compensation, which runs before the contrast solve rather than after it.
+  </Card>
+</CardGroup>

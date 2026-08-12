@@ -1,66 +1,109 @@
 ---
-title: "Configuring Type Scale and Font Settings in Substrate"
+title: "Configuring Type Scale and Font Families in Substrate"
 sidebarTitle: "Typography"
-description: "Substrate computes your full type scale from type-size-unit and scale-ratio. Seven named steps from xs to 3xl — no per-step sizes to hand-author."
+description: "Substrate has no type-size ladder. A base size and a scale ratio feed a continuous power function that semantic text roles sample at fractional exponents."
 ---
 
-Typography in Substrate is fully computed — you never author individual font sizes by hand. Instead, you declare three things: a base size (`type-size-unit`), a ratio that governs how steps scale up and down (`scale-ratio`), and an optional font stack. From those inputs, Substrate generates a complete, harmonically consistent type scale with semantic step names ready to use in components and stylesheets.
+Typography in Substrate is continuous. There is no set of named size steps to pick from — no `xs` through `3xl`. You declare a base size and a modular ratio, and every text size in the system is that base raised to a power of the ratio, evaluated in CSS at use time so it tracks the user's type-scale preference without a rebuild.
 
-## Typography config block
+## The typography block
 
-```json
-"type-size-unit": "16px",
-"scale-ratio": 1.25,
-"font": {
-  "sans": "Inter, system-ui, sans-serif",
-  "mono": "JetBrains Mono, Menlo, monospace"
-}
+From the shipped Stripe foundation (`src/brands/stripe/config.global.yaml`):
+
+```yaml
+typography:
+  heading-family: "'Sohne', 'Inter', system-ui, sans-serif"
+  body-family: "'Sohne', 'Inter', system-ui, sans-serif"
+  base-font-size: 1
+  scale-ratio: 1.25     # major third — editorial scale
+  fluid:
+    rate: 0.5
+  density:
+    font-size-k: 0
+    font-weight-k: 0
 ```
 
-- **`type-size-unit`** — The mid-point of your scale. This value becomes `--type-size-md`. All other steps are derived from it. Defaults to `"16px"`.
-- **`scale-ratio`** — The multiplier applied at each step. `1.25` is the Major Third — a popular choice for UI type scales because the steps are meaningfully distinct without being too dramatic. Defaults to `1.25`.
-- **`font`** — An optional map of font-family stacks. Define `sans` and/or `mono`; Substrate generates corresponding CSS custom properties and wires them into component recipes automatically.
+<AccordionGroup>
+  <Accordion title="heading-family and body-family">
+    Required font stacks, as full CSS font-family strings. They reach the browser as `--font-heading` and `--font-body` on the brand selector, and components resolve through `--surface-font-family`. Delta pairs `"Whitney, Verdana, system-ui, sans-serif"` for both; SkyMiles overrides only the heading stack to `"'Whitney Condensed', Whitney, Verdana, system-ui, sans-serif"`.
+  </Accordion>
 
-## Generated scale steps
+  <Accordion title="mono-family">
+    Optional. When omitted, the generated CSS falls back to a system monospace stack (`ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`).
+  </Accordion>
 
-Substrate produces seven named steps. The semantic names are fixed — they map to predictable roles in UI hierarchy regardless of the underlying pixel values:
+  <Accordion title="base-font-size">
+    A number in **rem**, not a pixel string. Every shipped brand uses `1`, which emits `--font-size-base: 1rem`. This is the size of the baseline text role, and every other size is derived from it.
+  </Accordion>
 
-| Token | Formula | Value at `16px` / `1.25` |
-|---|---|---|
-| `--type-size-xs` | base ÷ ratio² | `10.24px` |
-| `--type-size-sm` | base ÷ ratio | `12.8px` |
-| `--type-size-md` | base (the unit itself) | `16px` |
-| `--type-size-lg` | base × ratio | `20px` |
-| `--type-size-xl` | base × ratio² | `25px` |
-| `--type-size-2xl` | base × ratio³ | `31.25px` |
-| `--type-size-3xl` | base × ratio⁴ | `39.06px` |
+  <Accordion title="scale-ratio">
+    The modular ratio the scale raises to a power. Stripe and Magic Patterns use `1.25` (major third), Delta uses `1.2` (minor third), and Delta Cargo tightens further to `1.15`. This is the authored ratio — the effective one is computed at runtime.
+  </Accordion>
 
-## Generated CSS output
+  <Accordion title="fluid">
+    Optional responsive behavior. `rate` is the viewport or container coefficient used in the `clamp()` preferred value; `floor` and `ceiling` bound how far a size may shrink or grow as ratios of the computed size; `quantum` sets the rounding step in rem. Per-role fluid envelopes additionally carry absolute `min` and `max` in rem and can choose `reference: viewport` or `container`.
+  </Accordion>
+
+  <Accordion title="density">
+    Optional signed coefficients linking type to the density slider. `font-size-k` controls how much `--density` pushes font size, and `font-weight-k` how much it pushes weight. All six shipped brands set both to `0`, which decouples type from density — but a brand that wants text to tighten alongside spacing can dial them up.
+  </Accordion>
+</AccordionGroup>
+
+## The continuous scale
+
+The authored `scale-ratio` is not used directly. The runtime first blends it toward 1 by the user's type-scale preference, producing an effective ratio, then raises that to the role's exponent. From `generated/global/css/tokens.gen.css`:
 
 ```css
 :root {
-  --type-size-xs: 10.24px;
-  --type-size-sm: 12.8px;
-  --type-size-md: 16px;
-  --type-size-lg: 20px;
-  --type-size-xl: 25px;
-  --type-size-2xl: 31.25px;
-  --type-size-3xl: 39.06px;
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', Menlo, monospace;
+  --effective-ratio: calc(1 + (var(--scale-ratio) - 1) * var(--type-scale-factor));
 }
 ```
 
-## Fluid type (responsive scaling)
-
-When you configure a viewport range in your Substrate config, the system generates `clamp()` values for each type step instead of fixed pixel sizes. This means your type scale expands smoothly from the minimum viewport to the maximum — no breakpoint-based overrides needed:
+Every size in the system then comes from one expression, evaluated per element:
 
 ```css
---type-size-lg: clamp(18px, 1.25vw + 14px, 20px);
+--surface-font-size: round(nearest,
+  calc(var(--font-size-base) * pow(var(--effective-ratio), var(--_font-scale))),
+  var(--font-size-quantum, 0.25rem));
 ```
 
-Fluid clamp output requires a `viewport` config block alongside your typography settings. See the responsive configuration guide for details.
+The consequence is that a brand's typographic personality is two numbers. Raising `scale-ratio` from 1.2 to 1.25 widens the gap between every pair of adjacent roles at once, and a user who prefers larger type moves `typeScaleFactor` up — bounded by `flexibility.type-scale`, which every shipped brand sets to `{ min: 0.9, max: 1.4 }` — and the whole hierarchy expands proportionally without a regenerate.
+
+## Semantic text roles
+
+What replaces named size steps is a small set of semantic roles, each with a **fractional** exponent into the scale. From `generated/global/typescript/text-roles.gen.ts`:
+
+| Role | Font scale | Font weight |
+|---|---|---|
+| `heading` | 3 | 700 |
+| `body` | 0 (the baseline) | 400 |
+| `caption` | -0.75 | 400 |
+| `label` | -0.5 | 600 |
+| `code` | -0.25 | 400 |
+| `kbd` | -0.5 | 600 |
+
+Fractional exponents are the point. `caption` at -0.75 sits three-quarters of a step below body — a position no integer ladder can express. Each role also carries a fluid envelope with absolute rem bounds; `body`, for instance, is bounded to 0.875–1.5rem with a floor of 0.85 and a ceiling of 1.1.
+
+Roles compose with the density coefficients at the component level. A badge, for example, sets its own scale offset and lets the brand's coefficients modulate it:
+
+```css
+--_font-scale: calc(-1 + var(--density-fs-k, 0) * var(--density, 1));
+--surface-font-weight: calc(600 + var(--density-fw-k, 0) * var(--density, 1));
+```
+
+<Note>
+  Fluid sizing needs no viewport configuration block — there is no such block in the schema. The brand-level `fluid` settings plus each role's own envelope are the whole mechanism.
+</Note>
 
 <Tip>
-  Try changing `scale-ratio` from `1.25` to `1.333` (Perfect Fourth) — every step in the scale recalculates instantly without any manual edits. Experimenting with ratios is a safe, high-leverage way to adjust the overall expressiveness of your type hierarchy.
+  When a heading feels wrong, reach for `scale-ratio` before reaching for a role. The ratio moves the entire hierarchy coherently; a one-off role adjustment moves one thing and creates a new exception to maintain.
 </Tip>
+
+<CardGroup cols={2}>
+  <Card title="Spacing & Density" icon="layout" href="/brand-config/spacing-density">
+    The same continuous treatment applied to space — one unit, scaled at each use site.
+  </Card>
+  <Card title="Brand Config Overview" icon="sliders" href="/brand-config/overview">
+    The full schema and the kebab-case normalization rule.
+  </Card>
+</CardGroup>

@@ -35,6 +35,7 @@
             "pages": [
               "introduction",
               "quickstart",
+              "integration",
               "core-concepts"
             ]
           },

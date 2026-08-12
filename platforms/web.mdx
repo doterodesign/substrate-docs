@@ -1,101 +1,171 @@
 ---
-title: "Integrating Substrate Design Tokens in Web Projects"
+title: "Web: The Generated CSS Cascade and the Runtime Solver"
 sidebarTitle: "Web"
-description: "Substrate outputs CSS custom properties for every token. Import the generated stylesheet and reference tokens with var() in your CSS and components."
+description: "Substrate's web output is a layered CSS cascade of continuous primitives composed with calc(), driven by a JavaScript runtime that solves APCA contrast per surface."
 ---
 
-Substrate compiles your design tokens into a single CSS file containing every custom property, scoped across all five display modes. Once you import it, every token is available anywhere in your stylesheet or component code via the standard `var()` function — no build plugins, no JavaScript runtime, no dependencies.
+Substrate's web output has two layers that work together. The **generated CSS** establishes a cascade built entirely from continuous scalars composed with `calc()`, and the **JavaScript runtime** solves APCA contrast against the actual surface and writes the results back as custom properties.
 
-## Output files
+<Warning>
+  A JavaScript runtime is required. The static CSS includes a baked no-JS snapshot so a server-rendered page paints accessibly at first paint, but that snapshot is an accessible floor covering the page surface under four preset combinations. Continuous scheme positions, CVD compensation, warmth, density, and scoped surfaces all need the runtime.
+</Warning>
 
-After running `substrate build`, Substrate generates the following files inside your configured output directory:
+---
 
+## Getting the CSS
+
+The pipeline writes into `generated/`, with globally shared artifacts under `generated/global/` and per-brand artifacts under `generated/brands/<brand>/<sub-brand>/`. Load the barrel once at your app entry — it pulls in the layer definitions, the token layer, the `@property` declarations, the role selectors, every brand's CSS, the component styles, and the CVD pattern overlays:
+
+```ts
+import '@substrate/generated/global/css/index.gen.css';
 ```
-dist/tokens/acme/
-├── acme.css      # CSS custom properties, all modes
-├── acme.json     # Raw token JSON (Figma, Style Dictionary, etc.)
+
+Regeneration runs from a Substrate checkout through npm scripts, not through the CLI:
+
+```bash
+npm run generate            # the whole pipeline
+npm run generate:tokens     # token artifacts for every target
+npm run generate:tokens:css # CSS only
 ```
 
-`acme.css` contains every token as a CSS custom property, with mode-specific values applied through `data-theme` attribute selectors. `acme.json` exposes the same token tree in a portable format for use with external tooling.
+<Note>
+  The CLI has no build or audit verb — generation is an npm-script pipeline, not a CLI command. The full CLI surface is `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact`; see the [Quickstart](/quickstart). Never run `npx substrate`: the CLI package isn't published, and that name resolves to an unrelated third-party package.
+</Note>
 
-## Importing tokens
+---
 
-Reference `acme.css` in your global stylesheet so the custom properties are available across your entire application:
+## The custom property namespaces
+
+Three namespaces do the work.
+
+### `--ucs-*` — solver-written intent primitives
+
+The runtime writes five numeric properties per intent, for every intent the brand declares. Lightness values are solved; hue and chroma come from the brand config after the warmth and CVD transforms:
 
 ```css
-/* In your global stylesheet */
-@import './dist/tokens/acme/acme.css';
+--ucs-brand-hue         /* 0–360 OKLCH hue */
+--ucs-brand-chroma      /* 0–0.4 OKLCH chroma */
+--ucs-brand-fg-l        /* solved foreground lightness — APCA Lc 75 target */
+--ucs-brand-border-l    /* solved border lightness — Lc 50 */
+--ucs-brand-surface-l   /* derived accent surface lightness */
 ```
 
-If you are using a JavaScript bundler such as Vite, webpack, or Parcel, you can import the file directly in your entry point instead:
-
-```js
-import './dist/tokens/acme/acme.css';
-```
-
-## Using tokens
-
-Reference any token with the standard CSS `var()` function. Token names follow a consistent namespace convention described in the [Token categories](#token-categories) section below.
+Each numeric primitive is registered with `@property` so the browser type-checks and interpolates it:
 
 ```css
-.button-primary {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--type-size-md);
-  transition: background var(--motion-fast) var(--ease-standard);
-}
-
-.button-primary:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: var(--space-1);
+@property --ucs-brand-fg-l {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: true;
 }
 ```
 
-## Mode switching
+There is also a non-numeric `--ucs-brand-pattern`, carrying the achromat overlay image. Per-text-role foreground variants exist too, such as `--ucs-brand-fg-l-heading` and `--ucs-brand-fg-l-caption`.
 
-Substrate uses the `data-theme` attribute on the root `<html>` element to activate a display mode. When no attribute is present, Substrate's default mode responds to the operating system's light/dark preference via a `prefers-color-scheme` media query.
+The baked per-mode files use a different, resolved shape — `--ucs-{intent}-{surface,text,border}` holding finished hex values, since there is no solver running at that point.
+
+### `--intent-*` — the role indirection
+
+An element doesn't reference an intent by name. It carries a `data-mode` role, and the generated role selector points `--intent-*` at that intent's primitives:
+
+```css
+[data-mode~="brand"] {
+  --intent-hue:       var(--ucs-brand-hue);
+  --intent-chroma:    var(--ucs-brand-chroma);
+  --intent-fg-l:      var(--ucs-brand-fg-l);
+  --intent-border-l:  var(--ucs-brand-border-l);
+  --intent-surface-l: var(--ucs-brand-surface-l);
+  --intent-pattern:   var(--ucs-brand-pattern);
+}
+```
+
+The shipped system roles are `brand`, `neutral`, `danger`, `warning`, `success`, `info`, and `beta`. Brand-specific roles are generated alongside them. Because the selector matches with `~=` against a space-separated list, an element can carry several roles at once.
+
+### `--ctx-*` and `--surface-*` — surface context
+
+`--ctx-surface-l` holds the lightness of the surface the current subtree sits on. It is the input the solver measures against, which is what makes scoped re-solving possible. The `--surface-*` properties carry a scoped surface's own composed background and foreground.
+
+### Continuous scalars
+
+Spacing, type, and motion are not enumerated ladders. Each is one base value scaled by a preference axis:
+
+```css
+:root {
+  --effective-ratio: calc(1 + (var(--scale-ratio) - 1) * var(--type-scale-factor));
+  --radius: calc(var(--radius-base) * var(--density));
+  --duration: calc(var(--duration-base) * var(--motion-factor));
+}
+```
+
+Spacing composes from a single `--space-unit` scaled by `--density` and `--scale`. There are no numbered spacing steps, no t-shirt-sized type ramp, and no named easing scale — the continuous model *is* the contract. See the [token reference](/reference/spacing-tokens).
+
+---
+
+## Initializing the runtime
+
+Three calls, in order. `syncBrandToCssVars` also sets `data-brand` on the root element:
+
+```ts
+import '@substrate/generated/global/css/index.gen.css';
+import {
+  syncBrandToCssVars, syncPrefsToCssVars, updateAllVars,
+  defaultPreferences, BRAND_REGISTRY,
+} from '@substrate/engine';
+
+const brand = BRAND_REGISTRY[0];
+const prefs = defaultPreferences();
+
+syncBrandToCssVars(brand);   // data-brand + typography, shape, motion, spacing vars
+syncPrefsToCssVars(prefs);   // --scheme, --contrast-factor, --density, …
+updateAllVars(brand, prefs); // solves APCA, writes the --ucs-* primitives to :root
+```
+
+Any preference change repeats the last two calls. Full detail, including the Surface component and the alias contract, is on the [Integration](/integration) page.
+
+---
+
+## Using it in your CSS
+
+Opt an element into the cascade with `data-ucs` and give it a role:
 
 ```html
-<!-- OS default (auto light/dark via media query) -->
-<html>
-
-<!-- Explicit light mode -->
-<html data-theme="light">
-
-<!-- Explicit dark mode -->
-<html data-theme="dark">
-
-<!-- High contrast -->
-<html data-theme="high-contrast">
+<div data-ucs data-mode="brand">Solved brand surface</div>
+<div data-ucs data-mode="danger">Solved danger surface</div>
 ```
 
-Use the following JavaScript snippet to build a minimal theme switcher. It sets the attribute on the document root and persists the user's choice to `localStorage` so the preference survives page reloads.
+Then compose colors from the primitives the same way the generated CSS does:
 
-```js
-function setTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('substrate-theme', theme);
+```css
+.my-panel[data-ucs] {
+  background: oklch(var(--intent-surface-l) var(--intent-chroma) var(--intent-hue));
+  color:      oklch(var(--intent-fg-l) var(--intent-chroma) var(--intent-hue));
+  border:     1px solid oklch(var(--intent-border-l) var(--intent-chroma) var(--intent-hue));
+  border-radius: var(--radius);
+  transition: background var(--duration);
 }
-
-// Restore saved theme on page load
-const saved = localStorage.getItem('substrate-theme');
-if (saved) setTheme(saved);
 ```
 
-## Token categories
+Because you compose from primitives rather than hard-coded colors, the same rule tracks every preference change automatically — scheme, contrast, CVD, and warmth all flow through without a second declaration.
 
-Substrate organises every CSS custom property into named namespaces. The table below describes each namespace and the values it contains.
+---
 
-| Namespace | Description |
-|---|---|
-| `--color-*` | Color tokens — surface, on-surface, primary, error, and their variants |
-| `--space-*` | Spacing scale tokens — `1`, `2`, `3`, `4`, `6`, `8`, `12`, `16` |
-| `--type-size-*` | Type scale tokens — `xs`, `sm`, `md`, `lg`, `xl`, `2xl`, `3xl` |
-| `--font-*` | Font family tokens — `sans`, `mono` |
-| `--motion-*` | Duration tokens — `instant`, `fast`, `normal`, `slow`, `slower` |
-| `--ease-*` | Easing tokens — `standard`, `enter`, `exit`, `spring` |
+## Other output targets
 
-<Tip>
-  Use the `acme.json` raw token output to integrate with Figma via [Tokens Studio](https://tokens.studio/), with [Style Dictionary](https://amzn.github.io/style-dictionary/) for custom build pipelines, or with any other token tooling that accepts the W3C Design Token Community Group format.
-</Tip>
+CSS is one target among several. The same brand model is emitted as **DTCG JSON** (the W3C design-token format, for Tokens Studio and Style Dictionary), **Swift**, **Kotlin/Compose**, **React Native**, **Xcode asset catalogs**, and **JSON conformance vectors** used to hold the native kernel ports to the TypeScript kernel's behavior.
+
+```bash
+npm run generate:tokens:dtcg
+npm run generate:tokens:swift
+npm run generate:tokens:compose
+```
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Integration" icon="plug" href="/integration">
+    The runtime call sequence, the three import aliases, and the Surface component.
+  </Card>
+  <Card title="iOS / Swift" icon="apple" href="/platforms/ios-swift">
+    Per-mode Display P3 token files and the SubstrateKernel package.
+  </Card>
+</CardGroup>

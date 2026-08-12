@@ -84,10 +84,14 @@ const npmScripts = sorted(Object.keys(enginePkg.scripts ?? {}));
 
 const swiftFiles = readAll(['generated/**/*.swift', 'packages/kernel-swift/Sources/**/*.swift']);
 const kotlinFiles = readAll(['generated/**/*.kt', 'packages/kernel-kotlin/src/main/**/*.kt']);
+const webComponentFiles = readAll(['src/components/**/*.tsx', 'src/components/**/*.ts']);
 const nativeSymbols = sorted([
   ...matches(swiftFiles, /(?:enum|struct|class|protocol|typealias)\s+([A-Z][A-Za-z0-9_]*)/g),
   ...matches(swiftFiles, /^import\s+([A-Z][A-Za-z0-9_]*)/gm),
   ...matches(kotlinFiles, /(?:object|class|interface|typealias)\s+([A-Z][A-Za-z0-9_]*)/g),
+  // Substrate-branded client-owned web component exports (e.g. SubstrateSurface,
+  // SubstrateButton) — the checker validates every Substrate<X> spelling.
+  ...matches(webComponentFiles, /export\s+(?:const|function|class|interface|type)\s+(Substrate[A-Za-z0-9_]*)/g),
 ]);
 
 // Config keys from shipped brand YAML + the system config overlay source.

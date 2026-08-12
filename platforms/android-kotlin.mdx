@@ -1,106 +1,171 @@
 ---
-title: "Using Substrate Tokens in Android and Kotlin Projects"
+title: "Android: Compose Token Files and the substrate.kernel Port"
 sidebarTitle: "Android / Kotlin"
-description: "Substrate generates a Kotlin constants file with Color, Space, and TypeSize tokens. Integrate it into Jetpack Compose or View-based Android apps."
+description: "Substrate emits per-mode Compose files declaring SubstrateSystemTokens in Display P3, a Material 3 ColorScheme bridge, and a Kotlin port of the color kernel."
 ---
 
-Substrate compiles your design tokens into a single Kotlin file containing typed color, spacing, and typography constants for every display mode. The file slots directly into any Android project — it has no external dependencies beyond the Compose UI libraries you likely already use, and it works equally well with View-based layouts.
+The Compose output mirrors the Swift output closely: **per-mode token files** with statically resolved colors, a **Material 3 ColorScheme bridge** for interop with existing theming, and a **Kotlin port of the color kernel** for anything continuous.
 
-## Output file
+---
 
-After running `substrate build`, Substrate places the Kotlin token file alongside the other platform outputs:
+## What gets generated
 
-```
-dist/tokens/acme/
-└── acme.kt
-```
+Each brand emits a directory under `generated/brands/<brand>/compose/`:
 
-## Adding to your project
+| File | Contents |
+|---|---|
+| `system.light.gen.kt` | Resolved tokens at `scheme: 0`, `contrastFactor: 1.0` |
+| `system.dark.gen.kt` | Resolved tokens at `scheme: 1`, `contrastFactor: 1.0` |
+| `system.highContrast.gen.kt` | `scheme: 0`, `contrastFactor: 1.3` |
+| `system.darkHighContrast.gen.kt` | `scheme: 1`, `contrastFactor: 1.3` |
+| `material-scheme.gen.kt` | Material 3 `ColorScheme` values for light and dark |
+| `brand.gen.kt` | Brand data the kernel evaluates |
+| `index.gen.kt` | Aggregate entry point: brand data plus component descriptors |
 
-<Steps>
-  <Step title="Copy the token file into your app module">
-    Place `acme.kt` inside your app module's source set. A conventional location is:
+As on iOS, there is no `system.dimmed.gen.kt` — a mid-track position at `scheme: 0.65` has no endpoint to bake and needs continuous sampling through the kernel.
 
-    ```
-    app/src/main/java/com/acme/design/SubstrateTokens.kt
-    ```
+---
 
-    Update the `package` declaration at the top of the file to match your module's package name if it differs from the default.
-  </Step>
-  <Step title="Verify dependencies">
-    No additional Gradle dependencies are required. The file uses only `androidx.compose.ui.graphics.Color` and `androidx.compose.ui.unit.*`, which are included in the standard Compose UI artifact.
-  </Step>
-</Steps>
+## The token files
 
-## Using tokens in Jetpack Compose
-
-Import `SubstrateTokens` from your design package and reference its nested objects — `Color`, `Space`, `TypeSize` — inside any composable. All values are fully typed and integrate naturally with Compose's layout and styling APIs.
+Real output from `generated/brands/magic-patterns/compose/system.light.gen.kt`:
 
 ```kotlin
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
-import com.acme.design.SubstrateTokens
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.colorspace.ColorSpaces
 
-@Composable
-fun PrimaryButton(label: String, onClick: () -> Unit) {
-  Button(
-    onClick = onClick,
-    colors = ButtonDefaults.buttonColors(
-      containerColor = SubstrateTokens.Color.primary,
-      contentColor = SubstrateTokens.Color.onPrimary
-    ),
-    modifier = Modifier.padding(
-      horizontal = SubstrateTokens.Space.space4,
-      vertical = SubstrateTokens.Space.space2
+data class SubstrateSystemTokenSet(
+    val surface: Color,
+    val text: Color,
+    val border: Color,
+)
+
+object SubstrateSystemTokens {
+    val surface = SubstrateSystemTokenSet(
+        surface = Color(red = 0.9588f, green = 0.9594f, blue = 0.9728f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        text = Color(red = 0.0424f, green = 0.0427f, blue = 0.0511f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        border = Color(red = 0.4431f, green = 0.4436f, blue = 0.4553f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
     )
-  ) {
-    Text(
-      text = label,
-      fontSize = SubstrateTokens.TypeSize.md
+    val brand = SubstrateSystemTokenSet(
+        surface = Color(red = 0.3475f, green = 0.1504f, blue = 0.9177f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        text = Color(red = 0.3673f, green = 0.1900f, blue = 0.9455f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        border = Color(red = 0.5581f, green = 0.5264f, blue = 1.0000f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
     )
-  }
 }
 ```
 
-## Dark mode and dynamic theming
+Colors are **Display P3**, and each intent is a surface/text/border triple — the same three fields as Swift. The roles are `surface`, `surfaceElevated`, `brand`, `neutral`, `danger`, `warning`, and `success`, plus any custom intents the brand declares. There are no spacing or type-size constants in the token output.
 
-Substrate's Kotlin output includes separate `Light` and `Dark` token objects. Use Compose's `isSystemInDarkTheme()` to select the correct set at runtime and pass it into your `MaterialTheme` wrapper:
+<Warning>
+  **The generated Compose files declare no package.** They go straight from the generated header to the imports, so there is no package line to edit and no import statement to write in consuming code — the declarations are top-level in whatever source set you add them to.
+
+  All four per-mode files declare the *same* top-level names, so adding two of them to one source set fails to compile on duplicate `SubstrateSystemTokens` and `SubstrateSystemTokenSet` declarations. Include **exactly one per build variant** — for example, via variant-specific source sets in Gradle.
+</Warning>
 
 ```kotlin
 @Composable
-fun AcmeTheme(content: @Composable () -> Unit) {
-  val tokens = if (isSystemInDarkTheme()) {
-    SubstrateTokens.Dark
-  } else {
-    SubstrateTokens.Light
-  }
-
-  MaterialTheme(
-    colorScheme = tokens.toColorScheme(),
-    content = content
-  )
+fun BalanceCard() {
+    Column(
+        modifier = Modifier
+            .background(SubstrateSystemTokens.surfaceElevated.surface)
+            .border(1.dp, SubstrateSystemTokens.surface.border)
+            .padding(16.dp)
+    ) {
+        Text("Balance due", color = SubstrateSystemTokens.surface.text)
+        Text("$42.00", color = SubstrateSystemTokens.brand.text)
+    }
 }
 ```
 
-This approach ensures that every component inside `AcmeTheme` automatically receives the correct token values without any per-component conditional logic.
+---
 
-## High contrast
+## The Material ColorScheme bridge
 
-Substrate generates a dedicated high-contrast token set that maps to Android's forced-contrast night mode. Read the system accessibility preference at runtime and switch to `SubstrateTokens.HighContrast` when it is enabled:
+If your app already themes through Material 3, `material-scheme.gen.kt` is the integration point. It maps Substrate's solved intents onto Material's role names and exposes a ready `ColorScheme` for each of light and dark:
 
 ```kotlin
-// Check for high contrast preference
-val accessibilityManager = getSystemService(ACCESSIBILITY_SERVICE) as AccessibilityManager
-if (accessibilityManager.isHighTextContrastEnabled) {
-  // Use SubstrateTokens.HighContrast
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+
+object MagicPatternsMaterialScheme {
+    val light: ColorScheme = lightColorScheme(
+        primary = Color(red = 0.3475f, green = 0.1504f, blue = 0.9177f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        onPrimary = Color(red = 0.9999f, green = 1.0000f, blue = 1.0000f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        error = Color(red = 0.6942f, green = 0.0659f, blue = 0.1203f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        background = Color(red = 0.9588f, green = 0.9594f, blue = 0.9728f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        onBackground = Color(red = 0.0424f, green = 0.0427f, blue = 0.0511f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        outline = Color(red = 0.4431f, green = 0.4436f, blue = 0.4553f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+    )
+
+    val dark: ColorScheme = darkColorScheme(/* … */)
 }
 ```
 
-You can combine this check with the dark/light selection above to cover all five Substrate display modes within a single theme composable.
+The object is named per brand, so the Magic Patterns brand produces `MagicPatternsMaterialScheme`. Unlike the per-mode token files, this one carries both schemes in a single file, so runtime light/dark selection is straightforward:
 
-<Tip>
-  Integrate Substrate's Kotlin output with your `MaterialTheme` so every component in your app inherits brand tokens automatically — rather than referencing token values directly in each composable. This keeps your component code free of design-system imports and makes future token updates a single-file change.
-</Tip>
+```kotlin
+@Composable
+fun AppTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = if (darkTheme) MagicPatternsMaterialScheme.dark
+                      else MagicPatternsMaterialScheme.light,
+        content = content,
+    )
+}
+```
+
+<Note>
+  Material's role vocabulary is narrower than Substrate's. The bridge covers the Material roles; intents outside that set — custom brand intents, `beta`, `info` — stay available through `SubstrateSystemTokens` or the kernel.
+</Note>
+
+---
+
+## The kernel port
+
+`packages/kernel-kotlin` mirrors the Swift package, in the `substrate.kernel` package: `Apca.kt`, `Oklch.kt`, `Cvd.kt`, `Warmth.kt`, `Track.kt`, `Pipeline.kt`, `Preferences.kt`, `Surface.kt`, `ColorResolve.kt`, `StyleDescriptor.kt`, and `BrandData.kt`. Unlike the generated token files, the kernel *does* declare a package, so you import from it normally:
+
+```kotlin
+import substrate.kernel.CvdConfig
+import substrate.kernel.CvdType
+import substrate.kernel.UserPreferences
+```
+
+Reach for the kernel when static files can't express what you need: a continuous scheme position such as dimmed, a user-chosen `contrastFactor`, CVD compensation, or warmth. A conformance harness holds the port to the TypeScript kernel's computed values, so Android, iOS, and web agree on the same inputs.
+
+---
+
+## Component descriptors
+
+Component styling ships as data, interpreted by the kernel. The per-brand `index.gen.kt` aggregates the brand data and each component's resolved descriptor — the brand override where one exists, otherwise the global descriptor:
+
+```kotlin
+import substrate.kernel.BrandData
+import substrate.kernel.ComponentStyleDescriptor
+
+object MagicPatternsSubstrate {
+    val brand: BrandData = MagicPatternsBrand.data
+
+    val styles: Map<String, ComponentStyleDescriptor> = mapOf(
+        "badge" to MagicPatternsBadgeComponent.style,
+        "button" to MagicPatternsButtonComponent.style,
+        "card" to CardComponent.style,
+        "input" to MagicPatternsInputComponent.style,
+    )
+}
+```
+
+<Note>
+  Every generated file carries a `@generated-substrate` header and is a build artifact. Never edit one — change the brand YAML and regenerate with `npm run generate:tokens:compose` from a Substrate checkout.
+</Note>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="iOS / Swift" icon="apple" href="/platforms/ios-swift">
+    The SwiftPM mirror of this output and the SubstrateKernel package.
+  </Card>
+  <Card title="Modes Overview" icon="sliders" href="/modes/overview">
+    The preference vector behind the four baked modes, and why dimmed isn't one of them.
+  </Card>
+</CardGroup>

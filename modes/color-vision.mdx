@@ -1,116 +1,133 @@
 ---
-title: "Color Vision Deficiency (CVD) Presets in Substrate"
+title: "Color Vision Deficiency: Runtime Hue Redistribution"
 sidebarTitle: "Color Vision"
-description: "Substrate ships three CVD presets — protanopia, deuteranopia, and tritanopia — enabled with one config flag to serve users with color vision differences."
+description: "Substrate compensates for protan, deutan, tritan, and achromat vision at runtime with continuous severity — redistributing every intent hue onto a discriminable arc before contrast is solved."
 ---
 
-Approximately 8% of males and 0.5% of females have some form of color vision deficiency (CVD) — an estimated 300 million people worldwide. For those users, semantic color roles like `error` (typically red) and `success` (typically green) may be indistinguishable from each other, breaking the meaning your interface is trying to communicate. Substrate addresses this with built-in CVD presets: enable them in your config and Substrate generates a complete alternate token set where semantic colors are shifted to hues that remain distinguishable under each deficiency, with APCA contrast maintained throughout.
+Around 8% of men and 0.5% of women have some form of color vision deficiency. When intents are distinguished only by hue — `danger` red against `success` green being the classic pair — those users lose the distinction entirely.
 
-## Supported presets
+Substrate treats CVD as a **runtime user preference**, not a brand configuration. There is no CVD array in the brand YAML and no alternate token set to generate. The user's vision is described by two values, and the kernel redistributes intent hues to suit it before any contrast math runs.
 
-| Preset | Type | Affects |
+<Warning>
+  Read [Scope and limits](#scope-and-limits) before relying on this. Hue redistribution is an **aid, not a guarantee**, and it is never a substitute for non-color cues.
+</Warning>
+
+---
+
+## The preference
+
+CVD is a small struct on the preference vector: a type and a continuous severity.
+
+```ts
+cvd: { type: 'deutan', severity: 0.8 }
+```
+
+The four compensable types — plus `none` — are the kernel's own identifiers, and they are spelled the same way in TypeScript, Swift, and Kotlin:
+
+| Type | Affects | Compensation |
 |---|---|---|
-| `protanopia` | Red-blindness | Red/green distinction |
-| `deuteranopia` | Green-blindness | Red/green distinction |
-| `tritanopia` | Blue-blindness | Blue/yellow distinction |
+| `protan` | Reduced/absent long-wavelength (red) sensitivity | Hue redistribution onto the blue-yellow arc |
+| `deutan` | Reduced/absent medium-wavelength (green) sensitivity | Hue redistribution onto the blue-yellow arc |
+| `tritan` | Reduced/absent short-wavelength (blue) sensitivity | Hue redistribution onto the red-green arc |
+| `achromat` | Little or no color perception | Chroma reduction plus pattern overlays |
 
-Protanopia and deuteranopia are by far the most common forms, collectively affecting roughly 7–8% of males. Tritanopia is rarer but still meaningful at scale. All three are first-class presets in Substrate.
+Use these exact identifiers. The clinical names — protanopia, deuteranopia, tritanopia — do not appear in the API.
 
-## Enabling CVD presets
+**Severity is continuous**, from `0` (normal vision) to `1` (full dichromacy or monochromacy). It is a first-class dimension, not a switch: `severity: 0.4` applies a proportionally weaker transform than `1.0`, which matters because most CVD is partial. Setting `type: 'none'` or `severity: 0` is the identity transform.
 
-Add a `cvd` array to your brand config and list the presets you want to generate. Each entry produces an independent token set under its own `data-theme` value.
+```ts
+import {
+  syncPrefsToCssVars, updateAllVars, defaultPreferences, BRAND_REGISTRY,
+} from '@substrate/engine';
 
-```json
-{
-  "brand": "acme",
-  "cvd": ["protanopia", "deuteranopia"]
-}
+const brand = BRAND_REGISTRY[0];
+const prefs = defaultPreferences();
+
+prefs.cvd = { type: 'protan', severity: 1 };
+syncPrefsToCssVars(prefs);
+updateAllVars(brand, prefs);
 ```
 
-To enable all three presets, include all values:
+Because CVD is one axis among seven, it composes with the others for free. Dark plus deutan plus elevated contrast is simply three assignments to the same vector — there is nothing to nest and no combined artifact to generate.
 
-```json
-{
-  "brand": "acme",
-  "cvd": ["protanopia", "deuteranopia", "tritanopia"]
-}
+The runtime can also persist and restore the setting, and it defers to the OS when the OS is already handling color:
+
+```ts
+import { applyCvdFromStorage, persistCvd, applyForcedColorsCheck } from '@substrate/engine';
+
+applyCvdFromStorage(prefs, onChange);   // restore a saved preference
+persistCvd(prefs);                       // save the current one
+applyForcedColorsCheck(prefs, onChange); // forced-colors: active disables compensation
 ```
 
-<Tip>
-  Enable all three CVD presets in your config. The additional CSS output size is minimal — each preset adds one scoped `[data-theme]` block — and it ensures your system serves users you may not know about. There is no performance cost at runtime; the browser only parses the block matching the active `data-theme`.
-</Tip>
+---
 
-## What the system generates
+## How compensation works
 
-For each enabled preset, Substrate shifts the hue of semantic color roles — `error`, `warning`, `success`, `info` — to values that remain perceptually distinct under that deficiency. Lightness and chroma are then re-solved with APCA to maintain the same contrast targets as the standard theme.
+The transform order is fixed: **warmth → cvd → apca**. Color is adjusted for the user *first*, and contrast is solved against the already-compensated colors. Compensating after solving would invalidate the contrast guarantee.
 
-Applying a preset looks the same as applying any other mode:
+### Chromatic types
 
-```html
-<html data-theme="protanopia">
-```
+For `protan`, `deutan`, and `tritan`, the kernel redistributes hues onto a **CVD-safe arc** — the range of hues that remain discriminable under that deficiency:
 
-The generated token block shifts `error` away from red (hue 0) toward amber (hue 40) and shifts `success` away from green (hue 145) toward cyan (hue 200), ensuring the two roles read as different colors to a user who cannot distinguish red from green.
+| Type | Safe arc | Axis |
+|---|---|---|
+| `protan` | 70° → 290° | Blue-yellow (~220° wide) |
+| `deutan` | 70° → 290° | Blue-yellow (~220° wide) |
+| `tritan` | 310° → 130° | Red-green (~180°, wraps through 0°) |
+
+The redistribution applies to **every intent in the map**, not just the semantic ones. `brand`, `neutral`, and any custom intent you declare are all repositioned; nothing is exempt. Intents are ordered by their angular offset from the confusion-zone midpoint and mapped proportionally into the safe arc, subject to a minimum separation of **15°** between adjacent hues so that neighbors don't collapse into each other.
+
+This is a redistribution, not a lookup table. There are no hard-coded "red becomes amber" mappings — where a hue lands depends on the arc, the other intents present, and the severity.
+
+### Achromat
+
+Monochromacy can't be solved by moving hues, so `achromat` takes a different path: chroma is reduced proportionally to severity, reaching zero at `severity: 1`. Hue is left alone because it no longer carries information.
+
+Since color is then unavailable as a channel, the runtime sets `data-cvd-achromat` on the root element and the shipped CSS uses it to apply per-intent **pattern overlays**, so filled and subtle surfaces stay distinguishable by texture:
 
 ```css
-[data-theme="protanopia"] {
-  /* Error shifts from red hue 0 to amber hue 40 */
-  --color-error:    oklch(52% 0.22 40);
-  --color-on-error: oklch(98% 0.01 40);
-
-  /* Success shifts from green hue 145 to cyan hue 200 */
-  --color-success:    oklch(48% 0.20 200);
-  --color-on-success: oklch(98% 0.01 200);
+[data-cvd-achromat] .ucs-action[data-mode~="filled"][data-ucs] {
+  background-image: var(--intent-pattern, none);
+  background-repeat: repeat;
 }
 ```
 
-Your brand's primary, secondary, and neutral tokens are not modified by CVD presets — only the semantic roles that encode meaning through hue are shifted. If your primary color happens to be red or green, consider reviewing it manually for CVD contexts; Substrate flags this in the audit output.
+Each intent carries a `--ucs-{intent}-pattern` primitive alongside its numeric ones, mapped to `--intent-pattern` by the role selector.
 
-## Combining CVD presets with other modes
+### Simulation
 
-CVD presets are composable with the five standard display modes. If a user prefers dark mode *and* has protanopia, you can serve both by nesting `data-theme` attributes:
+For design review, the runtime can render the page *as a CVD viewer would see it* rather than compensating for them. This sets `data-cvd-sim` on the root and applies a Machado simulation matrix as an SVG color filter. It is a devtool for checking your work, and the inverse of compensation — never enable both as a production path.
 
-```html
-<html data-theme="dark">
-  <div data-theme="protanopia">
-    <!-- tokens here resolve the protanopia overrides on top of the dark base -->
-  </div>
-</html>
-```
+---
 
-<Note>
-  Full mode × CVD composition — for example, a single `data-theme="dark-protanopia"` compound value — is on the Substrate roadmap. In the current release, nest `data-theme` attributes as shown above to achieve the same result. The cascade resolves correctly because CVD presets only override semantic role tokens, leaving the structural surface and foreground tokens from the outer dark theme intact.
-</Note>
+## Scope and limits
 
-## Detecting CVD preference automatically
+The kernel carries these caveats in its own source, and they belong in front of anyone shipping this feature.
 
-There is currently no CSS media query equivalent to `prefers-color-scheme` for color vision deficiency — the browser does not expose this information. CVD mode selection requires an explicit user choice in your application's settings.
+<Warning>
+  **Hue redistribution helps dichromats most.** It is weak for *anomalous trichromats* — people whose color perception is compressed rather than absent, and who are **the majority of people with CVD**. Treat compensation as an aid, not a guarantee.
+</Warning>
 
-<Steps>
-  <Step title="Add a CVD preference setting to your app">
-    Provide a selector in your accessibility or display settings that lets users choose a CVD preset. Label options plainly: "Optimised for red-green color vision difference" is more useful than "Protanopia mode."
-  </Step>
-  <Step title="Persist the preference">
-    Store the user's selection in `localStorage` or your user profile store so it persists across sessions.
+- **Never rely on color alone.** Information must not be conveyed by color by itself; pair it with text, icons, patterns, or position. This is [WCAG 2.2 §1.4.1 Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html) (Level A), and relatedly §1.4.11 Non-text Contrast (Level AA). Non-color cues are a requirement for *all* users, not a fallback that only monochromacy triggers.
+- **The 15° minimum separation is an engineering heuristic**, not a canonical or standardized threshold. It was chosen to work well in practice, and it has no normative backing.
+- **Validate empirically.** Run the Machado simulation for each CVD type against your actual palette and check pairwise perceptual distance (ΔE) between the colors that carry meaning. Do not assume the heuristic separation is sufficient for your specific set of intents.
 
-    ```js
-    localStorage.setItem('cvd-preset', 'protanopia');
-    ```
-  </Step>
-  <Step title="Apply the data-theme attribute">
-    On page load, read the stored preference and write it to `data-theme` on `<html>` before the first paint to avoid a flash of unstyled content.
+The simulation basis is solid and citable: pre-computed 3×3 physiological matrices at 11 severity steps, from Machado, Oliveira & Fernandes (2009), *IEEE Transactions on Visualization and Computer Graphics* 15(6), interpolated for intermediate severities.
 
-    ```js
-    const cvd = localStorage.getItem('cvd-preset');
-    if (cvd) {
-      document.documentElement.setAttribute('data-theme', cvd);
-    }
-    ```
-  </Step>
-</Steps>
+---
 
-## Cultural color considerations
+## No media query for this
 
-<Note>
-  Color meaning is not universal. In several East Asian cultural contexts, red signals good fortune and prosperity rather than danger or error — the opposite of its conventional meaning in Western UI design. If your product serves users in those markets, consider shifting your `error` semantic role toward orange even without a CVD preset. Substrate's hue override on semantic roles supports this directly in your brand config, and the APCA recalculation ensures the shifted hue still meets your contrast targets.
-</Note>
+Operating systems expose `prefers-color-scheme`, `prefers-contrast`, and `prefers-reduced-motion` — but there is no CSS media query for color vision deficiency, and no plan for one. CVD compensation therefore has no no-JS fallback: it requires the runtime and an explicit user preference, which is why persisting the choice matters. Give users a control, save it, and restore it on load.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Modes Overview" icon="sliders" href="/modes/overview">
+    The full preference vector CVD is one axis of, and what the no-JS floor covers.
+  </Card>
+  <Card title="High Contrast" icon="circle-up" href="/modes/high-contrast">
+    The contrast solve that runs after CVD compensation.
+  </Card>
+</CardGroup>

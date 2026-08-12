@@ -1,94 +1,160 @@
 ---
-title: "Display Modes: Automatic Accessibility Across Every Context"
+title: "Modes as Presets Over a Continuous Preference Vector"
 sidebarTitle: "Overview"
-description: "Substrate auto-generates five display modes — light, dark, dimmed, high-contrast, and high-contrast-dark — with APCA-verified contrast in each."
+description: "Substrate has no parallel token sets. It has seven continuous preference axes, and modes like dark or highContrast are named points on that continuum, re-solved by the runtime."
 ---
 
-Most design systems ship a single fixed token scale. If a user works in a dark environment, enables high-contrast mode, or has a color vision deficiency, that scale may fail them entirely. Substrate takes a different approach: from one brand config, it automatically generates five fully-accessible display modes so every user gets verified contrast regardless of their context, device, or visual needs.
+Most design systems ship modes as parallel artifacts: a light token set, a dark token set, and a switch that swaps one for the other. Substrate does not work that way. It models user context as a **continuous preference vector** with seven axes, and a "mode" is nothing more than a **named preset** — a convenient pair of coordinates on that continuum. Everything between the presets is reachable, and the values at every point are solved, not looked up.
 
-## The five modes
+This page covers the preference vector, the five shipped presets, how the runtime applies them, and what the no-JS fallback does and does not cover. For the underlying mental model, see [Core Concepts](/core-concepts#modes).
 
-Each mode is a complete, self-contained token set derived from the same brand config. Substrate recalculates lightness values using APCA contrast solving for every foreground/background pair in every mode — you never tune contrast by hand.
+---
 
-<AccordionGroup>
-  <Accordion title="light — Standard light-background interface">
-    The default mode. Surfaces are near-white, foreground text is near-black, and accent colors are placed at a lightness that clears APCA Lc 70 on the lightest permitted background. This is the baseline from which all other modes are derived.
-  </Accordion>
+## The preference vector
 
-  <Accordion title="dark — Dark-background interface">
-    Built for low-light environments and user preference. Substrate inverts the lightness logic: surfaces drop to near-black and foreground tokens rise to near-white. Hue and chroma can be independently tuned for dark (see [Light & Dark](./light-dark)) so neutrals can shift subtly warmer or cooler without a separate config.
-  </Accordion>
+Every axis is an independent, continuous scalar (`cvd` being a small struct rather than a number). These are the real defaults from `defaultPreferences()`:
 
-  <Accordion title="dimmed — Reduced-luminance dark variant">
-    A gentler dark mode. Luminance is reduced further than standard dark, making it well-suited for OLED screens (where true black saves battery) and nighttime reading sessions where a full-brightness dark theme is still too bright. APCA contrast targets are preserved at the lower luminance floor.
-  </Accordion>
+| Axis | Range | Default | What it scales |
+|---|---|---|---|
+| `scheme` | 0 (light) → 1 (dark) | `0` | Position along the light/dark track |
+| `contrastFactor` | 0.75 → 1.5 | `1` | Every APCA Lc target |
+| `densityFactor` | 0.8 → 1.3 | `1` | Spacing, sizing, border radius |
+| `typeScaleFactor` | 0.9 → 1.4 | `1` | The type scale ratio |
+| `motionFactor` | 0 (reduced) → 1 (full) | `0.75` | Transition and animation duration |
+| `warmth` | 0 (neutral) → 1 (amber) | `0` | Night-Shift-style warm shift |
+| `cvd` | `{ type, severity }` | `{ type: 'none', severity: 0 }` | Color vision compensation |
 
-  <Accordion title="high-contrast — Dramatically increased contrast on a light base">
-    Targets users who require maximum legibility — including users with low vision, those in high-ambient-light environments, and anyone who has enabled the OS-level "increase contrast" preference. All foreground/background pairs are pushed to APCA Lc 90+ while keeping your brand hue intact. See [High Contrast](./high-contrast).
-  </Accordion>
+Because the axes are independent, they compose freely. A user who wants a dark interface with elevated contrast, reduced motion, and deutan compensation is not choosing a fourth "mode" — they are setting four numbers.
 
-  <Accordion title="high-contrast-dark — Maximum contrast on a dark base">
-    The same APCA Lc 90+ recalculation applied to a dark-background base. Serves users who prefer dark interfaces but also need maximum legibility — a combination that most design systems do not address at all.
-  </Accordion>
-</AccordionGroup>
+<Note>
+  There is no theme attribute in Substrate. `scheme` is a continuous variable, not a string; the runtime writes `data-brand` on the root element; and `data-mode` selects a **semantic intent role**, not a display mode. See [Applying a mode](#applying-a-mode) below.
+</Note>
 
-## Applying modes
+---
 
-Substrate's CSS output uses a `data-theme` attribute. Set it on the `<html>` element to apply a mode globally, or on any container element to scope a mode to a subtree.
+## The five presets
 
-```html
-<!-- Apply a theme globally -->
-<html data-theme="dark">
+Named modes ship in the engine's scheme-preset table (`src/kernel/system/preferences.ts`). Each one sets exactly two axes — `scheme` and `contrastFactor` — and leaves the rest of the vector untouched:
 
-<!-- Apply a theme to a subtree -->
-<div data-theme="high-contrast">
+```ts
+light:            { scheme: 0,    contrastFactor: 1.0 }
+dark:             { scheme: 1,    contrastFactor: 1.0 }
+dimmed:           { scheme: 0.65, contrastFactor: 0.95 }
+highContrast:     { scheme: 0,    contrastFactor: 1.3 }
+darkHighContrast: { scheme: 1,    contrastFactor: 1.3 }
 ```
 
-All five mode values follow the same pattern:
+The keys are camelCase. There is no `high-contrast` and no `high-contrast-dark`.
 
-```html
-<html data-theme="light">
-<html data-theme="dark">
-<html data-theme="dimmed">
-<html data-theme="high-contrast">
-<html data-theme="high-contrast-dark">
+<Tabs>
+  <Tab title="light">
+    The light end of the scheme axis with standard contrast. Surfaces sit near white, and the solver produces dark foregrounds against them.
+  </Tab>
+  <Tab title="dark">
+    The dark end with standard contrast. APCA polarity flips and the solver computes light-on-dark values. Intents that declare a scheme track can shift hue or chroma here.
+  </Tab>
+  <Tab title="dimmed">
+    A **mid-track** position at `scheme: 0.65` with slightly relaxed contrast (`contrastFactor: 0.95`). Dimmed is *lighter* than dark, not darker — it sits between the endpoints and is sampled continuously by the solver rather than being a recolor of either end.
+  </Tab>
+  <Tab title="highContrast">
+    The light end with `contrastFactor: 1.3`. Every Lc target is multiplied, so the foreground target moves from Lc 75 to roughly Lc 97.5. Hue and chroma are unchanged — the brand still looks like itself.
+  </Tab>
+  <Tab title="darkHighContrast">
+    The dark end with the same 1.3× multiplier, for users who want a dark interface *and* elevated contrast.
+  </Tab>
+</Tabs>
+
+Applying a preset is a two-field assignment; nothing about the other axes changes:
+
+```ts
+import { defaultPreferences } from '@substrate/engine';
+
+const prefs = defaultPreferences();
+prefs.scheme = 1;             // darkHighContrast
+prefs.contrastFactor = 1.3;
 ```
 
-### Automatic OS preference detection
+The preset table is a convenience, not a gate. Assigning the same two numbers directly is exactly equivalent, which is why an arbitrary position such as `scheme: 0.42` is just as valid as a named one.
 
-You do not need JavaScript to follow OS-level preferences. Substrate's CSS output includes both `@media (prefers-color-scheme: dark)` and `@media (prefers-contrast: more)` blocks out of the box. When no explicit `data-theme` is set, the browser activates the correct mode automatically based on the user's system settings.
+<Warning>
+  `dimmed` is the one preset with no baked native artifact. Because it sits mid-track, it can only be produced by sampling the track continuously through the kernel. Light, dark, `highContrast`, and `darkHighContrast` each have a static Swift and Compose file; dimmed does not. See [iOS / Swift](/platforms/ios-swift) and [Android / Kotlin](/platforms/android-kotlin).
+</Warning>
+
+---
+
+## Applying a mode
+
+On the web, changing a mode means changing the preference vector and re-running the solver. The runtime writes the solved primitives back to CSS custom properties, and the cascade updates:
+
+```ts
+import {
+  syncPrefsToCssVars, updateAllVars, defaultPreferences, BRAND_REGISTRY,
+} from '@substrate/engine';
+
+const brand = BRAND_REGISTRY[0];
+const prefs = defaultPreferences();
+
+prefs.scheme = 1;            // move to the dark end
+prefs.contrastFactor = 1.3;  // elevate every Lc target
+
+syncPrefsToCssVars(prefs);   // writes --scheme, --contrast-factor, --density, …
+updateAllVars(brand, prefs); // re-solves APCA, writes the per-intent --ucs-* primitives
+```
+
+Nothing about that call sequence is specific to a preset — an arbitrary `scheme` of `0.42` works identically. Full setup lives in the [Quickstart](/quickstart) and the [Integration](/integration) page.
+
+Elements opt into the resulting cascade with `data-ucs`, and pick an intent role with `data-mode`:
+
+```html
+<div data-ucs data-mode="brand">Solved brand surface</div>
+<div data-ucs data-mode="danger">Solved danger surface</div>
+```
+
+`data-mode` is matched with `~=` against a space-separated token list, so an element can carry several roles at once. It is a role selector, not a theme switch.
+
+---
+
+## The no-JS floor
+
+Substrate bakes a static snapshot into each brand's CSS so a server-rendered page paints accessibly before hydration. That snapshot is a **2×2 matrix** — light/dark × normal/more contrast — emitted on `[data-brand="<slug>"]` and gated by media queries:
 
 ```css
+[data-brand="magic-patterns"] { /* light, contrastFactor 1.0 */ }
+
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    /* dark token values */
-  }
+  [data-brand="magic-patterns"] { /* the dark preset */ }
 }
 
 @media (prefers-contrast: more) {
-  :root:not([data-theme]) {
-    /* high-contrast token values */
-  }
+  [data-brand="magic-patterns"] { /* the highContrast preset */ }
+}
+
+@media (prefers-color-scheme: dark) and (prefers-contrast: more) {
+  [data-brand="magic-patterns"] { /* the darkHighContrast preset */ }
 }
 ```
 
-<Tip>
-  Setting `data-theme` explicitly on an element always takes precedence over the media-query fallback. This is the mechanism you use to build a theme-switcher control — write the user's choice to `data-theme` on `<html>` and the CSS cascade handles the rest.
-</Tip>
+This is the **accessible floor**, resolved for the page/root surface only. JavaScript is the primary path, and these all require it:
 
-## Explore each mode
+- Continuous `scheme` positions — including `dimmed` — and arbitrary `contrastFactor` values
+- CVD compensation, `warmth`, `densityFactor`, and the other continuous axes
+- Nested and scoped surfaces, where contrast is re-solved against the local background rather than the page
+
+The runtime also reads OS signals directly: `prefers-reduced-motion` drops `motionFactor` to 0, `prefers-contrast: more` raises `contrastFactor` to 1.3 while `prefers-contrast: less` lowers it to 0.85, and `forced-colors: active` disables CVD compensation so the OS palette wins.
+
+---
 
 <CardGroup cols={2}>
   <Card title="Light & Dark" icon="circle-half-stroke" href="/modes/light-dark">
-    How Substrate derives light and dark token sets from a single color intent, including multi-stop hue and chroma shifts.
+    How the scheme axis works: track evaluation, polarity flip, and continuous positions between the endpoints.
   </Card>
-  <Card title="High Contrast" icon="eye" href="/modes/high-contrast">
-    How APCA Lc 90+ recalculation works and how OS contrast preferences are wired automatically.
+  <Card title="High Contrast" icon="circle-up" href="/modes/high-contrast">
+    `contrastFactor` as a multiplier over the Lc policy, and how the runtime picks it up from the OS.
   </Card>
-  <Card title="Color Vision" icon="palette" href="/modes/color-vision">
-    CVD presets for protanopia, deuteranopia, and tritanopia — one config flag generates a full alternate token set.
+  <Card title="Color Vision" icon="eye" href="/modes/color-vision">
+    The four CVD types, continuous severity, hue redistribution, and the kernel's own caveats.
   </Card>
-  <Card title="Brand Config" icon="sliders" href="/brand-config/overview">
-    The single source of truth that drives all five modes. Start here when setting up a new project.
+  <Card title="Integration" icon="plug" href="/integration">
+    The runtime call sequence, the three import aliases, and the Surface component.
   </Card>
 </CardGroup>

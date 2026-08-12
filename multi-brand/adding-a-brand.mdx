@@ -1,93 +1,202 @@
 ---
-title: "Adding a New Brand to an Existing Substrate Workspace"
+title: "Adding a New Brand to a Substrate Engine"
 sidebarTitle: "Adding a Brand"
-description: "Add a new brand to Substrate by creating a config file with color intents and dimensional units. Accessibility behavior is automatic from the first build."
+description: "Create a directory, write a YAML config, generate. Discovery is a filesystem scan, so there is no registration step — and accessibility behavior is correct from the first run."
 ---
 
-Adding a brand to Substrate takes about five minutes. You create a directory, write a config file that describes the brand's color intents and dimensional units, register it in the workspace file, and run a build. Substrate resolves contrast, generates all display modes, and writes platform-ready token files automatically — no manual accessibility work required.
+Adding a brand is three steps: make a directory, write a config, regenerate. There is no registry to update and no build flag to pass, because discovery is a scan of the brands directory. The solver, the mode presets, and the accessibility gate apply to the new brand the moment it is found.
+
+Two paths follow, depending on whether you are adding a **sub-brand** to an existing family or a **standalone flat brand**. The sub-brand path is much shorter, because inheritance does most of the work.
+
+## Adding a sub-brand to an existing family
 
 <Steps>
 
-  <Step title="Create the brand directory">
-    Create a dedicated directory for the new brand inside your `brands/` folder. This is where the brand's config file will live.
+  <Step title="Create the sub-brand directory">
+    Inside the family directory, next to `config.global.yaml` and the existing sub-brands.
 
     ```bash
-    mkdir -p substrate/brands/nova
-    ```
-  </Step>
-
-  <Step title="Create the brand config file">
-    Create `substrate/brands/nova/substrate.config.json` and define the brand's color intents and dimensional units.
-
-    ```json
-    {
-      "brand": "nova",
-      "color": {
-        "primary": { "hue": 260, "chroma": 0.22 },
-        "neutral": {
-          "light": { "hue": 255, "chroma": 0.01 },
-          "dark": { "hue": 265, "chroma": 0.02 }
-        },
-        "error": { "hue": 5, "chroma": 0.24 },
-        "success": { "hue": 155, "chroma": 0.20 }
-      },
-      "space-unit": "4px",
-      "type-size-unit": "15px",
-      "scale-ratio": 1.2
-    }
+    mkdir -p src/brands/delta/vacations
     ```
 
-    Here is what each field controls:
-
-    - **`brand`** — the brand identifier used to namespace output files and token prefixes.
-    - **`color.primary`** — the hue (0–360) and chroma (0–0.4 in Oklch) of the brand's primary color intent. Substrate derives all lightness values and contrast-safe pairings from these two inputs.
-    - **`color.neutral`** — separate hue and chroma values for light-mode and dark-mode neutral surfaces. Splitting these allows the neutral to feel slightly warm or cool in each mode independently.
-    - **`color.error` / `color.success`** — semantic color intents for feedback states. Supply hue and chroma; Substrate handles the accessible lightness at each density and mode.
-    - **`space-unit`** — the base unit for all spacing steps in the scale. A value of `4px` means the first spacing step is `4px`, the second is `8px`, and so on.
-    - **`type-size-unit`** — the base body type size from which the type scale is derived.
-    - **`scale-ratio`** — the multiplier between adjacent type scale steps. A value of `1.2` produces a Minor Third scale.
+    The directory name becomes the child slug, and the merged brand slug will be `delta-vacations`.
   </Step>
 
-  <Step title="Register the brand in the workspace file">
-    Open `substrate.workspace.json` at the root of your Substrate workspace and add the new brand's directory path to the `brands` array.
+  <Step title="Write only the deltas">
+    Create `src/brands/delta/vacations/config.yaml` containing nothing but what differs from the family foundation. Everything else — intents, elevation, shape, space, flexibility, presets — is inherited.
 
-    ```json
-    {
-      "brands": ["brands/acme", "brands/nova"],
-      "output": "./dist/tokens"
-    }
+    ```yaml
+    name: Delta Air Lines - Vacations
+
+    intents:
+      brand:
+        chroma: 0.220
+      vacations-accent:
+        hue: 51
+        chroma: 0.116
+
+    typography:
+      scale-ratio: 1.25
+
+    motion:
+      duration-base: 250
     ```
+
+    Note what is absent. There is no `slug` — it comes from the directory structure. The `intents.brand` override supplies only `chroma`, inheriting `hue: 15` from the parent, because the cascade [deep-merges partial objects](/multi-brand/inheritance). And `typography` overrides one field while keeping the family's font stacks and fluid settings.
   </Step>
 
-  <Step title="Build the new brand">
-    Run the build command for the new brand. Substrate compiles the full token set — all modes, all platforms — in a single pass.
+  <Step title="Generate">
+    From the engine checkout:
 
     ```bash
-    substrate build --brand nova
-    ```
-  </Step>
-
-  <Step title="Verify the output">
-    After the build completes, confirm that the expected output files exist under the brand's namespaced directory.
-
-    ```
-    dist/tokens/
-    └── nova/
-        ├── nova.css          # CSS variables for all modes
-        ├── nova.swift        # Swift token file
-        ├── nova.kt           # Kotlin token file
-        └── nova.json         # Raw token JSON (for Figma/tooling)
+    npm run generate
     ```
 
-    Each platform file is self-contained and includes tokens for every display mode. You can import `nova.css` directly into your web project or hand `nova.swift` and `nova.kt` off to your native platform teams.
+    Every brand regenerates, the new one included.
   </Step>
 
 </Steps>
 
-<Note>
-  Each brand automatically gets all five display modes — light, dark, dimmed, high-contrast, and high-contrast-dark — without any extra configuration. Substrate generates the full mode set from your color intents on every build.
-</Note>
+## Adding a standalone flat brand
 
-<Tip>
-  You only need to specify what's different from your workspace-level defaults. If all your brands share the same `space-unit` and `scale-ratio`, set those in the `defaults` block of `substrate.workspace.json` and omit them from individual brand configs. See [Inheritance](/multi-brand/inheritance) for details on the cascade.
-</Tip>
+A brand with no sub-brands is a single directory holding a single `config.yaml` — but that config has no parent to inherit from, so it must be **complete**. All seven required sections must be present, and `intents` must include both `brand` and `neutral` or the load throws.
+
+<Steps>
+
+  <Step title="Create the brand directory">
+    ```bash
+    mkdir -p src/brands/nova
+    ```
+
+    The directory name is the slug: `nova`.
+  </Step>
+
+  <Step title="Write a complete config">
+    Create `src/brands/nova/config.yaml`. This shape follows the shipped Magic Patterns config, the reference example of a flat brand.
+
+    ```yaml
+    name: Nova
+
+    intents:
+      brand:
+        hue: 284
+        chroma: 0.272
+      neutral:
+        hue: 284
+        chroma: 0.005
+      danger:
+        hue: 25
+        chroma: 0.22
+      warning:
+        hue: 75
+        chroma: 0.17
+      success:
+        hue: 150
+        chroma: 0.19
+      info:
+        hue: 267
+        chroma: 0.191
+
+    elevation:
+      step-light: 0.015
+      step-dark: 0.04
+      sunken-step: 0.025
+
+    typography:
+      heading-family: "Inter, system-ui, sans-serif"
+      body-family: "Inter, system-ui, sans-serif"
+      base-font-size: 1
+      scale-ratio: 1.25
+      fluid:
+        rate: 0.5
+
+    shape:
+      radius-base: 12
+
+    motion:
+      duration-base: 200
+      easing: "cubic-bezier(0.25, 0.1, 0.25, 1)"
+
+    space:
+      unit: 4
+
+    flexibility:
+      scheme: true
+      contrast: { min: 0.8, max: 1.5 }
+      density: { min: 0.75, max: 1.3 }
+      type-scale: { min: 0.9, max: 1.4 }
+      motion: { min: 0, max: 1 }
+
+    presets:
+      mode:
+        light:
+          scheme: 0
+          contrast-factor: 1.0
+        dark:
+          scheme: 1
+          contrast-factor: 1.0
+        dimmed:
+          scheme: 0.65
+          contrast-factor: 0.95
+        high-contrast:
+          scheme: 0
+          contrast-factor: 1.3
+        dark-high-contrast:
+          scheme: 1
+          contrast-factor: 1.3
+      density:
+        compact:
+          density-factor: 0.85
+        default:
+          density-factor: 1.0
+        comfortable:
+          density-factor: 1.15
+    ```
+
+    Values are in the units the schema expects: `base-font-size` in rem, `space.unit` and `radius-base` in pixels as bare numbers, `duration-base` in milliseconds as a bare number. Keys are kebab-case and normalize to camelCase at load — see the [config overview](/brand-config/overview).
+  </Step>
+
+  <Step title="Generate">
+    ```bash
+    npm run generate
+    ```
+  </Step>
+
+  <Step title="Verify the output">
+    A flat brand writes to `generated/brands/nova/`, with the same per-target subdirectories every brand gets:
+
+    ```
+    generated/brands/nova/
+    ├── css/            # brand.gen.css + tokens.<mode>.gen.css
+    ├── swift/          # brand.gen.swift, index.gen.swift, system.<mode>.gen.swift
+    ├── compose/        # Kotlin equivalents
+    ├── dtcg/
+    ├── json/
+    ├── react-native/
+    ├── xcassets/
+    └── docs/
+    ```
+
+    Every file carries a `.gen.` marker and a `DO NOT EDIT` header. Sub-brands nest one level deeper — `generated/brands/delta/vacations/`.
+  </Step>
+
+</Steps>
+
+<Warning>
+  Modes are authored, not automatic. A brand gets exactly the mode levels its `presets.mode` map declares — the five in the example above are a convention the shipped brands share, not a built-in set. Omit `presets.mode` and the brand has no named modes. The same applies to density levels, whose names are entirely brand-chosen; Magic Patterns calls its levels `discovery`, `default`, and `workspace`.
+</Warning>
+
+## What happens at load
+
+Two validations run before a brand is usable. The intent roster must contain `brand` and `neutral`, and any intent using `scheme-end` or `scheme-track` grammar is desugared and checked — including stop positions, reference cycles, and references to intents that do not exist.
+
+After that, the accessibility gate runs over the whole corpus during generation. If an intent cannot reach its APCA target within gamut, the shortfall is reported and the build fails rather than shipping a brand that quietly misses contrast. A new brand is held to exactly the same bar as the six that ship with the engine.
+
+<CardGroup cols={2}>
+  <Card title="Inheritance" icon="arrow-down-to-bracket" href="/multi-brand/inheritance">
+    The deep-merge rules, null-delete, and the validator that enforces deltas-only authoring.
+  </Card>
+  <Card title="Color" icon="palette" href="/brand-config/color">
+    How to choose hue and chroma for an intent, and what the solver does with them.
+  </Card>
+</CardGroup>

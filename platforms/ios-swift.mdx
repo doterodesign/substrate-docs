@@ -1,78 +1,183 @@
 ---
-title: "Substrate Tokens for iOS: Swift Constants Integration"
+title: "iOS: Per-Mode Swift Token Files and the SubstrateKernel Package"
 sidebarTitle: "iOS / Swift"
-description: "Substrate generates a Swift constants file with Color, Space, and TypeSize tokens. Add it to your Xcode project and reference tokens in SwiftUI or UIKit."
+description: "Substrate emits per-mode Swift files declaring SubstrateSystemTokens in Display P3, plus SubstrateKernel — a SwiftPM port of the APCA, OKLCH, and CVD math."
 ---
 
-Substrate compiles your design tokens into a single Swift file that exposes every color, spacing, typography, and motion value as typed constants. The file requires no third-party dependencies and works with both SwiftUI and UIKit — you reference tokens directly through the `SubstrateTokens` enum namespace without any additional setup.
+The Swift output has two halves. **Generated token files** hold statically resolved colors for each baked mode, and **SubstrateKernel** is a SwiftPM package containing a full port of the color math, for the cases where static values aren't enough.
 
-## Output file
+Which half you need depends on how dynamic your app is. Static files alone cover light, dark, and the two high-contrast modes. Anything continuous — a mid-track scheme position, CVD compensation, custom contrast — requires the kernel.
 
-After running `substrate build`, Substrate places the Swift token file alongside the other platform outputs:
+---
 
-```
-dist/tokens/acme/
-└── acme.swift
-```
+## What gets generated
 
-## Adding to Xcode
+Each brand emits a directory under `generated/brands/<brand>/swift/`:
 
-<Steps>
-  <Step title="Copy or symlink the token file">
-    Copy `acme.swift` into your Xcode project directory, or create a symlink so the file stays in sync with future `substrate build` runs. A common location is `YourApp/DesignSystem/SubstrateTokens.swift`.
-  </Step>
-  <Step title="Add the file to your target">
-    In Xcode, select `acme.swift` in the Project Navigator and open the **File Inspector** (⌥ ⌘ 1). Confirm that your app target is checked under **Target Membership**.
-  </Step>
-  <Step title="Start using tokens">
-    No `import` statement is required. The tokens are declared as top-level constants inside the `SubstrateTokens` enum, which is globally accessible throughout your module once the file is part of the target.
-  </Step>
-</Steps>
+| File | Contents |
+|---|---|
+| `system.light.gen.swift` | Resolved tokens at `scheme: 0`, `contrastFactor: 1.0` |
+| `system.dark.gen.swift` | Resolved tokens at `scheme: 1`, `contrastFactor: 1.0` |
+| `system.highContrast.gen.swift` | `scheme: 0`, `contrastFactor: 1.3` |
+| `system.darkHighContrast.gen.swift` | `scheme: 1`, `contrastFactor: 1.3` |
+| `brand.gen.swift` | Brand data the kernel evaluates |
+| `index.gen.swift` | Aggregate entry point: brand data plus resolved component descriptors |
 
-## Using tokens in SwiftUI
+<Warning>
+  There is no `system.dimmed.gen.swift`. Dimmed sits mid-track at `scheme: 0.65`, so it has no endpoint to bake — producing it requires continuous track sampling through SubstrateKernel. See [Modes Overview](/modes/overview#the-five-presets).
+</Warning>
 
-Reference `SubstrateTokens` directly inside any `View`. Each category is a nested enum — `Color`, `Space`, `TypeSize`, `Font`, `Motion` — keeping autocompletion focused and discoverable.
+---
+
+## The token files
+
+Every per-mode file declares the same two top-level types: a `SubstrateSystemTokenSet` struct of exactly three colors, and a `SubstrateSystemTokens` enum of intent roles. This is real output from `generated/brands/magic-patterns/swift/system.light.gen.swift`:
 
 ```swift
 import SwiftUI
 
-struct PrimaryButton: View {
-  var body: some View {
-    Button("Continue") {}
-      .padding(.horizontal, SubstrateTokens.Space.space4)
-      .padding(.vertical, SubstrateTokens.Space.space2)
-      .background(SubstrateTokens.Color.primary)
-      .foregroundColor(SubstrateTokens.Color.onPrimary)
-      .font(.system(size: SubstrateTokens.TypeSize.md))
-  }
+public struct SubstrateSystemTokenSet {
+    public let surface: Color
+    public let text: Color
+    public let border: Color
+
+    public init(surface: Color, text: Color, border: Color) {
+        self.surface = surface
+        self.text = text
+        self.border = border
+    }
+}
+
+public enum SubstrateSystemTokens {
+    public static let surface = SubstrateSystemTokenSet(
+        surface: Color(.displayP3, red: 0.9588, green: 0.9594, blue: 0.9728, opacity: 1.0000),
+        text: Color(.displayP3, red: 0.0424, green: 0.0427, blue: 0.0511, opacity: 1.0000),
+        border: Color(.displayP3, red: 0.4431, green: 0.4436, blue: 0.4553, opacity: 1.0000)
+    )
+    public static let brand = SubstrateSystemTokenSet(
+        surface: Color(.displayP3, red: 0.3475, green: 0.1504, blue: 0.9177, opacity: 1.0000),
+        text: Color(.displayP3, red: 0.3673, green: 0.1900, blue: 0.9455, opacity: 1.0000),
+        border: Color(.displayP3, red: 0.5581, green: 0.5264, blue: 1.0000, opacity: 1.0000)
+    )
 }
 ```
 
-## Using tokens in UIKit
+Three things to note:
 
-For UIKit views, color tokens expose a `.uiColor` helper that converts the SwiftUI `Color` value to a `UIColor`. All spacing and type size values are `CGFloat` constants and can be used directly.
+- **Colors are Display P3**, not sRGB. The `Color(.displayP3, …)` initializer is deliberate — the solver works in a wide gamut and the output preserves it.
+- **Every intent is a surface/text/border triple.** There are no `primary`/`onPrimary` pairs and no separate foreground roles.
+- **There are no spacing or type-size constants.** Those live in component style descriptors and are resolved by the kernel.
 
-```swift
-let button = UIButton()
-button.backgroundColor = SubstrateTokens.Color.primary.uiColor
-button.setTitleColor(SubstrateTokens.Color.onPrimary.uiColor, for: .normal)
-button.titleLabel?.font = .systemFont(ofSize: SubstrateTokens.TypeSize.md)
-```
+The intent roles in the enum are `surface`, `surfaceElevated`, `brand`, `neutral`, `danger`, `warning`, and `success`, plus whatever custom intents the brand declares.
 
-## Mode support
+### Selecting a mode
 
-Substrate's Swift tokens use `UITraitCollection` under the hood to return the correct resolved value for the device's current appearance. You do not need to write any conditional logic for standard light and dark modes.
+Because all four files declare the *same* top-level names, they are **alternative artifacts, not siblings**. Adding two to one target collides on duplicate declarations. Pick one per build configuration, or wrap them behind your own conditional compilation.
 
 ```swift
-// Returns the light or dark value automatically
-SubstrateTokens.Color.surface
+import SwiftUI
 
-// Force a specific mode
-SubstrateTokens.Color.surface.resolving(in: .darkMode)
+struct ContentView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("Balance due")
+                .foregroundStyle(SubstrateSystemTokens.surface.text)
+            Text("$42.00")
+                .foregroundStyle(SubstrateSystemTokens.brand.text)
+        }
+        .padding()
+        .background(SubstrateSystemTokens.surfaceElevated.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(SubstrateSystemTokens.surface.border)
+        )
+    }
+}
 ```
 
-Calling `.resolving(in:)` with a specific trait collection override is useful in previews, screenshot tests, or any context where you need to render a fixed appearance regardless of the system setting.
+If you want light and dark selected at runtime rather than at build time, either namespace the generated enums yourself or move to the kernel, which computes both from one brand definition.
+
+---
+
+## SubstrateKernel
+
+`packages/kernel-swift` is a SwiftPM package holding a pure-math port of the TypeScript kernel — no UI dependencies:
+
+| Source | Responsibility |
+|---|---|
+| `Apca.swift` | APCA contrast and the lightness solver |
+| `Oklch.swift` | OKLCH conversion and gamut mapping |
+| `Cvd.swift` | Machado simulation and hue redistribution |
+| `Warmth.swift` | The warmth transform |
+| `Track.swift` | Scheme-track evaluation at continuous positions |
+| `Pipeline.swift` | The warmth → cvd → apca pipeline |
+| `Preferences.swift` | `UserPreferences`, `CvdConfig`, `CvdType` |
+| `Surface.swift` | Base and derived surface computation |
+| `ColorResolve.swift` | Foreground, border, and surface resolution |
+| `StyleDescriptor.swift` | Component style descriptor types |
+| `BrandData.swift` | The brand model the kernel evaluates |
+| `Materials.swift` | Material and effect resolution |
+
+`UserPreferences` mirrors the web vector exactly, with the same defaults:
+
+```swift
+import SubstrateKernel
+
+var prefs = UserPreferences.defaults()
+prefs.scheme = 0.65                                    // dimmed — no baked file exists
+prefs.contrastFactor = 1.3
+prefs.cvd = CvdConfig(type: .deutan, severity: 0.8)
+```
+
+The port is held to the TypeScript kernel by reference fixtures and per-brand conformance vectors, so a value computed in Swift matches the one the web runtime computes for the same inputs.
+
+---
+
+## Component descriptors
+
+Component styling ships as **data**, not code. Descriptors live in `generated/global/swift/components/`, with brand-specific overrides under the brand's own `swift/components/` directory. Each imports `SubstrateKernel` and describes a component as a tree of nodes and properties:
+
+```swift
+import SubstrateKernel
+
+public enum BadgeComponent {
+    public static let style = ComponentStyleDescriptor(
+        component: "badge",
+        nodes: [
+            StyleNode(
+                scope: .component,
+                properties: [
+                    StyleProperty(name: "padding-x", value: .spatial(2)),
+                    StyleProperty(name: "font-weight", value: .number(600)),
+                    StyleProperty(name: "shape", value: .radiusCapsule),
+                    StyleProperty(name: "transition-easing", value: .easing("brand")),
+                ]
+            ),
+            StyleNode(
+                scope: .role("primary"),
+                background: ChannelParameters(alpha: 1),
+                foreground: ChannelParameters(chroma: .multiplier(0), contrast: .auto)
+            ),
+        ]
+    )
+}
+```
+
+Spacing appears as `.spatial(2)` — a multiple of the space unit, resolved against the current `densityFactor` — rather than a fixed point value. That indirection is what lets density stay continuous.
+
+The per-brand `index.gen.swift` aggregates brand data and the resolved descriptor for each component into one entry point, keyed by component name.
 
 <Note>
-  High-contrast and color vision deficiency (CVD) variants require the corresponding `data-theme` value to be reflected in your app's trait collection override. Refer to Apple's [`UITraitCollection.init(accessibilityContrast:)`](https://developer.apple.com/documentation/uikit/uitraitcollection/3238079-init) documentation for setup instructions on how to apply an `accessibilityContrast` override at the window or view-controller level.
+  Every generated file carries a `@generated-substrate` header and is a build artifact. Never edit one — changes belong in the brand YAML, then regenerate with `npm run generate:tokens:swift` from a Substrate checkout.
 </Note>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Android / Kotlin" icon="android" href="/platforms/android-kotlin">
+    The Compose mirror of this output, plus the Material ColorScheme bridge.
+  </Card>
+  <Card title="Modes Overview" icon="sliders" href="/modes/overview">
+    Why four files exist and dimmed doesn't, and what the preference vector controls.
+  </Card>
+</CardGroup>
