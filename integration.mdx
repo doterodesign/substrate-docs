@@ -4,6 +4,8 @@ sidebarTitle: "Runtime & Imports"
 description: "The required wiring for every web integration: three public import aliases with an engine-swap guarantee, the three-call runtime sequence that drives the solver, and the OS preference helpers."
 ---
 
+import RuntimeInitExample from '/snippets/runtime-init-example.mdx';
+
 **Every web integration must do what's on this page.** Substrate solves color at runtime, so an app that skips the wiring here renders no solved values at all. The full picture is three required pieces and one situational one:
 
 | Step | Necessity | Where |
@@ -49,20 +51,7 @@ The rule in one line: reach all engine behavior through `@substrate/engine`, kee
 
 Substrate requires a JavaScript runtime on the web. Load the generated CSS barrel once, then make three calls in order:
 
-```ts
-import '@substrate/generated/global/css/index.gen.css';
-import {
-  syncBrandToCssVars, syncPrefsToCssVars, updateAllVars,
-  defaultPreferences, BRAND_REGISTRY,
-} from '@substrate/engine';
-
-const brand = BRAND_REGISTRY[0];
-const prefs = defaultPreferences();
-
-syncBrandToCssVars(brand);
-syncPrefsToCssVars(prefs);
-updateAllVars(brand, prefs);
-```
+<RuntimeInitExample />
 
 Each call has a distinct job:
 

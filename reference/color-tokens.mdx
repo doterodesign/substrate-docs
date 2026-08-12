@@ -5,6 +5,7 @@ description: "Every color custom property Substrate emits: the --ucs-* intent pr
 ---
 
 import IntentPrimitives from '/snippets/generated/intent-primitives.mdx';
+import MarkupOptInExample from '/snippets/markup-optin-example.mdx';
 
 Substrate does not emit a palette of named color tokens. It emits **per-intent solver primitives** — hue, chroma, and solved lightness channels — and the generated CSS composes final colors from them with `calc()`. Every variable below exists for *every intent the brand declares*: the conventional names (`brand`, `neutral`, `danger`, `warning`, `success`, `info`, `beta`) and any custom intents (`tier-gold`, `acme-cyan`, …) get identical treatment. See [Core Concepts](/core-concepts#computed-vs-static-tokens) for the model.
 
@@ -48,10 +49,7 @@ There is no `-subtle` variant and no `on-*` naming — the foreground for an int
 
 Elements opt into the cascade with `data-ucs`, and select an intent with the `data-mode` role attribute (a space-separated token list, so state tokens combine) — the full contract is on [Markup Opt-In](/markup):
 
-```html
-<div data-ucs data-mode="brand">Brand surface</div>
-<span data-ucs data-mode="danger">Destructive action</span>
-```
+<MarkupOptInExample />
 
 The runtime identifies the active brand by setting `data-brand="<slug>"` on the root. There is no theme attribute — scheme is a continuous preference; see [Modes](/modes/overview).
 

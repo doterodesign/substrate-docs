@@ -33,7 +33,7 @@
           {
             "group": "Get Started",
             "pages": [
-              "introduction",
+              "index",
               "quickstart",
               "core-concepts"
             ]
@@ -119,5 +119,11 @@
       "x": "https://x.com/DimitriOtero",
       "github": "https://github.com/doterodesign"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/introduction",
+      "destination": "/"
+    }
+  ]
 }

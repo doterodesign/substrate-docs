@@ -1,28 +1,24 @@
 ---
 title: "Substrate: Runtime-Solved Design System Engine for Teams"
+sidebarTitle: "Introduction"
 description: "Substrate solves accessible design tokens from brand intent at runtime. Declare hue and chroma per intent and get APCA-solved, continuously adaptive output for Web, iOS, and Android."
 ---
 
 Substrate is a generative design-token engine that replaces static token libraries with mathematical intent — explicitly **not a component library**. Instead of hand-authoring color ramps and parallel mode palettes, you declare what your brand *means* — a hue and chroma per intent, a spatial unit, a type ratio — and Substrate's runtime kernel solves every color's lightness with APCA against the actual surface it sits on, driven by a continuous preference vector (scheme, contrast, density, type scale, motion, warmth, color vision). The result is an always-accessible, continuously adaptive system delivered for Web (CSS + a small JS runtime), iOS (Swift), Android (Kotlin/Compose), and design tooling (DTCG).
 
-## Explore Substrate
+## The Problem With Static Tokens
 
-<CardGroup cols={2}>
-  <Card title="Introduction" icon="book-open" href="/introduction">
-    Learn why Substrate exists, how it models brand intent, and what makes runtime-solved tokens different from static libraries.
-  </Card>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Vendor the engine, run substrate init, wire the aliases, and initialize the runtime solver.
-  </Card>
-  <Card title="Brand Config" icon="sliders" href="/brand-config/overview">
-    Explore the YAML brand config — the open intents map, typography, flexibility bounds, and presets.
-  </Card>
-  <Card title="Modes & Accessibility" icon="circle-half-stroke" href="/modes/overview">
-    Understand the continuous preference vector, its named presets, and the accessibility guarantees behind them.
-  </Card>
-</CardGroup>
+Static design tokens store a value. `color-primary-500: #1A7F5A`. That value was probably chosen to look good in light mode, on a calibrated display, by someone with standard color vision. It may pass a WCAG 2.x contrast check against a white background. But it says nothing about:
 
-## How It Works
+- **Dark surfaces** — the same hue at the same lightness often fails contrast on dark backgrounds, where APCA polarity flips.
+- **In-between states** — real preferences aren't binary. A comfortable low-light reading position sits *between* light and dark; a static ramp has no value there.
+- **High-contrast needs** — users with low vision need foregrounds solved to genuinely higher contrast targets, not a slightly bolder version of the same token.
+- **Color vision deficiency (CVD)** — a palette designed around green and red as signal colors fails a large portion of users without a CVD-aware remap.
+- **Density, type scale, and motion sensitivity** — spacing, sizing, and animation are preferences too, and ladders of fixed steps can't follow them continuously.
+
+Teams that care about these users end up maintaining parallel token sets — a light ramp, a dark ramp, a high-contrast ramp — all authored by hand, all drifting apart the moment the primary color changes.
+
+## How Substrate Works
 
 <Steps>
   <Step title="Declare your brand intent">
@@ -35,3 +31,42 @@ Substrate is a generative design-token engine that replaces static token librari
     A small kernel (JS on the web; Swift and Kotlin ports on mobile) solves APCA contrast per surface under the user's preference vector and writes the results as `--ucs-*` variables. Change a preference and the whole interface re-solves — no rebuild.
   </Step>
 </Steps>
+
+Foreground colors are never hand-picked: the APCA (Advanced Perceptual Contrast Algorithm) solver finds the exact lightness that achieves the contrast target against the actual surface, for the user's exact position on the preference continuum. Named modes are just presets on that continuum. See [Core Concepts](/core-concepts#computed-vs-static-tokens) for the full model.
+
+## Key Benefits
+
+<AccordionGroup>
+  <Accordion title="Always-accessible contrast">
+    Every foreground in every context meets its APCA target by construction — foreground Lc 75, borders Lc 50, focus rings Lc 60, scaled by the user's contrast preference. Shortfalls are reported explicitly, and a build-failing accessibility gate keeps every brand in the build honest.
+  </Accordion>
+  <Accordion title="Continuous adaptation, presets included">
+    One brand config serves the whole preference continuum. Named presets — `light`, `dark`, `dimmed`, `highContrast`, `darkHighContrast` — are convenience points, and users can sit anywhere between them. You don't maintain parallel files.
+  </Accordion>
+  <Accordion title="Color vision deficiency compensation">
+    CVD support is a runtime preference (`protan`, `deutan`, `tritan`, `achromat`, with continuous severity): intent hues are redistributed onto a CVD-safe arc before contrast solving, and achromat mode adds pattern overlays so meaning never rides on color alone.
+  </Accordion>
+  <Accordion title="Multi-brand from a single config model">
+    Brand families share a base config; sub-brands author only deltas and inherit everything else through a deep-merge cascade. All accessibility behavior comes with the model.
+  </Accordion>
+  <Accordion title="Platform-agnostic output">
+    Every target — Web (CSS + JS runtime), iOS (Swift, Display P3), Android (Kotlin/Compose), React Native, DTCG JSON for design tools, xcassets — derives from the same brand data.
+  </Accordion>
+</AccordionGroup>
+
+## Where to Go Next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Vendor the engine, run substrate init, and initialize the runtime solver.
+  </Card>
+  <Card title="Core Concepts" icon="lightbulb" href="/core-concepts">
+    Dive deeper into color intent, runtime APCA solving, and cascading inheritance.
+  </Card>
+  <Card title="Runtime & Imports" icon="plug" href="/integration">
+    The required app wiring: the import contract and the three-call runtime sequence.
+  </Card>
+  <Card title="Surface Component" icon="layer-group" href="/surface-component">
+    The one shipped component — required wherever surfaces nest inside surfaces.
+  </Card>
+</CardGroup>

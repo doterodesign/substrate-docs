@@ -23,31 +23,29 @@ typography:
     font-weight-k: 0
 ```
 
-<AccordionGroup>
-  <Accordion title="heading-family and body-family">
-    Required font stacks, as full CSS font-family strings. They reach the browser as `--font-heading` and `--font-body` on the brand selector, and components resolve through `--surface-font-family`. A family can share one stack and let a sub-brand diverge on a single field — the fictional Aurora Airways family might pair `"'Aurora Sans', Verdana, system-ui, sans-serif"` for both, with its Rewards sub-brand overriding only the heading stack to a condensed cut.
-  </Accordion>
+### `heading-family` and `body-family`
 
-  <Accordion title="mono-family">
-    Optional. When omitted, the generated CSS falls back to a system monospace stack (`ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`).
-  </Accordion>
+Required font stacks, as full CSS font-family strings. They reach the browser as `--font-heading` and `--font-body` on the brand selector, and components resolve through `--surface-font-family`. A family can share one stack and let a sub-brand diverge on a single field — the fictional Aurora Airways family might pair `"'Aurora Sans', Verdana, system-ui, sans-serif"` for both, with its Rewards sub-brand overriding only the heading stack to a condensed cut.
 
-  <Accordion title="base-font-size">
-    A number in **rem**, not a pixel string. Every bundled demo brand uses `1`, which emits `--font-size-base: 1rem`. This is the size of the baseline text role, and every other size is derived from it.
-  </Accordion>
+### `mono-family`
 
-  <Accordion title="scale-ratio">
-    The modular ratio the scale raises to a power. `1.25` (major third) suits an editorial scale, `1.2` (minor third) a denser transactional one, and a data-heavy sub-brand might tighten further to `1.15`. This is the authored ratio — the effective one is computed at runtime.
-  </Accordion>
+Optional. When omitted, the generated CSS falls back to a system monospace stack (`ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`).
 
-  <Accordion title="fluid">
-    Optional responsive behavior. `rate` is the viewport or container coefficient used in the `clamp()` preferred value; `floor` and `ceiling` bound how far a size may shrink or grow as ratios of the computed size; `quantum` sets the rounding step in rem. Per-role fluid envelopes additionally carry absolute `min` and `max` in rem and can choose `reference: viewport` or `container`.
-  </Accordion>
+### `base-font-size`
 
-  <Accordion title="density">
-    Optional signed coefficients linking type to the density slider. `font-size-k` controls how much `--density` pushes font size, and `font-weight-k` how much it pushes weight. The bundled demo brands all set both to `0`, which decouples type from density — but a brand that wants text to tighten alongside spacing can dial them up.
-  </Accordion>
-</AccordionGroup>
+A number in **rem**, not a pixel string. Every bundled demo brand uses `1`, which emits `--font-size-base: 1rem`. This is the size of the baseline text role, and every other size is derived from it.
+
+### `scale-ratio`
+
+The modular ratio the scale raises to a power. `1.25` (major third) suits an editorial scale, `1.2` (minor third) a denser transactional one, and a data-heavy sub-brand might tighten further to `1.15`. This is the authored ratio — the effective one is computed at runtime.
+
+### `fluid`
+
+Optional responsive behavior. `rate` is the viewport or container coefficient used in the `clamp()` preferred value; `floor` and `ceiling` bound how far a size may shrink or grow as ratios of the computed size; `quantum` sets the rounding step in rem. Per-role fluid envelopes additionally carry absolute `min` and `max` in rem and can choose `reference: viewport` or `container`.
+
+### `density`
+
+Optional signed coefficients linking type to the density slider. `font-size-k` controls how much `--density` pushes font size, and `font-weight-k` how much it pushes weight. The bundled demo brands all set both to `0`, which decouples type from density — but a brand that wants text to tighten alongside spacing can dial them up.
 
 ## The continuous scale
 

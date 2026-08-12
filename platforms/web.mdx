@@ -4,6 +4,9 @@ sidebarTitle: "Web"
 description: "Substrate's web output is a layered CSS cascade of continuous primitives composed with calc(), driven by a JavaScript runtime that solves APCA contrast per surface."
 ---
 
+import RuntimeInitExample from '/snippets/runtime-init-example.mdx';
+import MarkupOptInExample from '/snippets/markup-optin-example.mdx';
+
 Substrate's web output has two layers that work together. The **generated CSS** establishes a cascade built entirely from continuous scalars composed with `calc()`, and the **JavaScript runtime** solves APCA contrast against the actual surface and writes the results back as custom properties.
 
 <Warning>
@@ -16,109 +19,7 @@ Substrate's web output has two layers that work together. The **generated CSS** 
 
 The pipeline writes into `generated/`, with globally shared artifacts under `generated/global/` and per-brand artifacts under `generated/brands/<brand>/<sub-brand>/`. Load the barrel once at your app entry — it pulls in the layer definitions, the token layer, the `@property` declarations, the role selectors, every brand's CSS, the component styles, and the CVD pattern overlays:
 
-```ts
-import '@substrate/generated/global/css/index.gen.css';
-```
-
-Regeneration runs from a Substrate checkout through npm scripts, not through the CLI:
-
-```bash
-npm run generate            # the whole pipeline
-npm run generate:tokens     # token artifacts for every target
-npm run generate:tokens:css # CSS only
-```
-
-<Note>
-  The CLI has no build or audit verb — generation is an npm-script pipeline, not a CLI command. The full CLI surface is `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact`; see the [Quickstart](/quickstart). The package is `@unknown-creatives/substrate`; a bare `npx substrate` still installs an unrelated third-party package — always use the scoped name.
-</Note>
-
----
-
-## The custom property namespaces
-
-Three namespaces do the work.
-
-### `--ucs-*` — solver-written intent primitives
-
-The runtime writes five numeric properties per intent, for every intent the brand declares. Lightness values are solved; hue and chroma come from the brand config after the warmth and CVD transforms:
-
-```css
---ucs-brand-hue         /* 0–360 OKLCH hue */
---ucs-brand-chroma      /* 0–0.4 OKLCH chroma */
---ucs-brand-fg-l        /* solved foreground lightness — APCA Lc 75 target */
---ucs-brand-border-l    /* solved border lightness — Lc 50 */
---ucs-brand-surface-l   /* derived accent surface lightness */
-```
-
-Each numeric primitive is registered with `@property` so the browser type-checks and interpolates it:
-
-```css
-@property --ucs-brand-fg-l {
-  syntax: "<number>";
-  initial-value: 0;
-  inherits: true;
-}
-```
-
-There is also a non-numeric `--ucs-brand-pattern`, carrying the achromat overlay image. Per-text-role foreground variants exist too, such as `--ucs-brand-fg-l-heading` and `--ucs-brand-fg-l-caption`.
-
-The baked per-mode files use a different, resolved shape — `--ucs-{intent}-{surface,text,border}` holding finished hex values, since there is no solver running at that point.
-
-### `--intent-*` — the role indirection
-
-An element doesn't reference an intent by name. It carries a `data-mode` role, and the generated role selector points `--intent-*` at that intent's primitives:
-
-```css
-[data-mode~="brand"] {
-  --intent-hue:       var(--ucs-brand-hue);
-  --intent-chroma:    var(--ucs-brand-chroma);
-  --intent-fg-l:      var(--ucs-brand-fg-l);
-  --intent-border-l:  var(--ucs-brand-border-l);
-  --intent-surface-l: var(--ucs-brand-surface-l);
-  --intent-pattern:   var(--ucs-brand-pattern);
-}
-```
-
-The shipped system roles are `brand`, `neutral`, `danger`, `warning`, `success`, `info`, and `beta`. Brand-specific roles are generated alongside them. Because the selector matches with `~=` against a space-separated list, an element can carry several roles at once.
-
-### `--ctx-*` and `--surface-*` — surface context
-
-`--ctx-surface-l` holds the lightness of the surface the current subtree sits on. It is the input the solver measures against, which is what makes scoped re-solving possible. The `--surface-*` properties carry a scoped surface's own composed background and foreground.
-
-### Continuous scalars
-
-Spacing, type, and motion are not enumerated ladders. Each is one base value scaled by a preference axis:
-
-```css
-:root {
-  --effective-ratio: calc(1 + (var(--scale-ratio) - 1) * var(--type-scale-factor));
-  --radius: calc(var(--radius-base) * var(--density));
-  --duration: calc(var(--duration-base) * var(--motion-factor));
-}
-```
-
-Spacing composes from a single `--space-unit` scaled by `--density` and `--scale`. There are no numbered spacing steps, no t-shirt-sized type ramp, and no named easing scale — the continuous model *is* the contract. See the [token reference](/reference/spacing-tokens).
-
----
-
-## Initializing the runtime
-
-Three calls, in order. `syncBrandToCssVars` also sets `data-brand` on the root element:
-
-```ts
-import '@substrate/generated/global/css/index.gen.css';
-import {
-  syncBrandToCssVars, syncPrefsToCssVars, updateAllVars,
-  defaultPreferences, BRAND_REGISTRY,
-} from '@substrate/engine';
-
-const brand = BRAND_REGISTRY[0];
-const prefs = defaultPreferences();
-
-syncBrandToCssVars(brand);   // data-brand + typography, shape, motion, spacing vars
-syncPrefsToCssVars(prefs);   // --scheme, --contrast-factor, --density, …
-updateAllVars(brand, prefs); // solves APCA, writes the --ucs-* primitives to :root
-```
+<RuntimeInitExample />
 
 Any preference change repeats the last two calls. Full detail on the call sequence and the alias contract is on the [Runtime & Imports](/integration) page; nested surfaces need the [Surface component](/surface-component).
 
@@ -128,10 +29,7 @@ Any preference change repeats the last two calls. Full detail on the call sequen
 
 Opt an element into the cascade with `data-ucs` and give it a role:
 
-```html
-<div data-ucs data-mode="brand">Solved brand surface</div>
-<div data-ucs data-mode="danger">Solved danger surface</div>
-```
+<MarkupOptInExample />
 
 Then compose colors from the primitives the same way the generated CSS does:
 

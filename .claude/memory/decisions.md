@@ -48,3 +48,27 @@
   types + test fixtures when no demo brand exercises the feature.
 - Legal phrasing refinement: "shipped brand(s)" is banned alongside brand
   names — it implies real clients. Say "bundled demo brand(s)".
+
+# Decisions (docs architecture review, 2026-08-12)
+
+Full review: .claude/reports/2026-08-12-docs-architecture-design-review.md.
+
+- Canonical examples are SHARED SNIPPETS, never pasted twice:
+  snippets/runtime-init-example.mdx (narrative home /integration) and
+  snippets/markup-optin-example.mdx (home /markup). Adding a third copy of
+  either example is a regression; import the snippet. The gate scans
+  snippets/ (glob is **/*.mdx), so they stay CI-checked.
+- Format (adapter) rules: accordions ONLY for FAQ-style progressive
+  disclosure; schema/reference content uses ### headings (anchors + TOC +
+  scanning — Mintlify anchors keep the em dash, e.g.
+  #intents-—-required); tabs ONLY for pick-one alternatives (platforms),
+  never for comparative enumerations (use a table — presets are the
+  precedent); Steps for short task flows, numbered ## headings for long
+  ones (quickstart).
+- index.mdx is the single landing/introduction (site root, first nav
+  entry, sidebarTitle "Introduction"); introduction.mdx deleted;
+  /introduction redirects to / via docs.json redirects.
+- reference/config-schema is the ONE schema module (all per-section
+  examples live there); brand-config/overview keeps the narrative (layout,
+  normalization, worked example, loader) plus a summary table linking into
+  config-schema anchors. Don't re-document schema sections on overview.

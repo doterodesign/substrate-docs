@@ -17,9 +17,23 @@ Bloom ships with the engine and is installed by [`substrate init`](/tooling/cli)
 
 The persona itself is four files: `bloom.md` (entry point and activation), `soul.md` (identity), `personality.md` (communication style), and `abilities.md` (routing). Three sibling judge personas — `evaluator`, `skeptic`, and `tiebreaker` — support its review workflows.
 
+You'll know the link step worked from `init`'s output:
+
+```
+  OK Linked agents to agents/bloom/
+  OK Linked 12 skills to .claude/skills/
+```
+
 ## Activating and dismissing
 
 Activate Bloom by mentioning it in conversation — "Bloom", "Hey Bloom", "@Bloom", "talk to Bloom" — or by asking for Substrate work by name: creating a component config, auditing the system, anything involving the adaptive color system, APCA contrast, theming, tokens, or platform transforms. Once active, the persona persists until explicitly dismissed ("dismiss Bloom", "thanks Bloom", "exit Bloom").
+
+```text
+You:   Hey Bloom, register a new sub-brand under our aurora family.
+Bloom: (loads the persona, routes to the substrate-brand skill,
+        and walks the registration with you)
+You:   thanks Bloom
+```
 
 ## What it can do: the skill catalog
 

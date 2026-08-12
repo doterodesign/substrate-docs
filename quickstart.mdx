@@ -108,27 +108,11 @@ To reprint every block without touching disk, run `substrate init --report-alias
 
 Two things run at app startup: load the **generated CSS barrel** once at your app entry (it establishes the full cascade), then initialize the **engine** — the runtime APCA solver, the only JS Substrate requires:
 
-```ts
-// main.tsx (or your framework's entry file)
-import '@substrate/generated/global/css/index.gen.css';
-import {
-  updateAllVars, syncBrandToCssVars, syncPrefsToCssVars,
-  defaultPreferences, BRAND_REGISTRY,
-} from '@substrate/engine';
-
-const brand = BRAND_REGISTRY[0];
-const prefs = defaultPreferences();
-syncBrandToCssVars(brand);   // typography, shape, motion, spacing vars
-syncPrefsToCssVars(prefs);   // scheme, contrast, density vars
-updateAllVars(brand, prefs); // runs the APCA solver, writes per-intent --ucs-* to :root
-```
+<RuntimeInitExample />
 
 Any element then opts into the cascade with `data-ucs` plus a `data-mode` role (the full attribute contract is on [Markup Opt-In](/markup)):
 
-```html
-<div data-ucs data-mode="brand">Solved brand surface</div>
-<div data-ucs data-mode="danger">Solved danger surface</div>
-```
+<MarkupOptInExample />
 
 To move along the scheme axis (light ↔ dark), update the preference vector and re-sync — the CSS reacts automatically:
 
@@ -151,6 +135,8 @@ substrate init --dry-run --platform claude-code
 # 2. Alias wiring: every @substrate/* target init wrote resolves on disk.
 node --input-type=module -e "
 import fs from 'node:fs';
+import RuntimeInitExample from '/snippets/runtime-init-example.mdx';
+import MarkupOptInExample from '/snippets/markup-optin-example.mdx';
 const { substrateAliases } = await import('./.substrate/aliases.js');
 for (const [alias, target] of Object.entries(substrateAliases)) {
   if (!fs.existsSync(target)) { console.error('MISSING', alias, '->', target); process.exit(1); }

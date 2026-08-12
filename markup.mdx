@@ -4,12 +4,11 @@ sidebarTitle: "Markup Opt-In"
 description: "Every element that uses Substrate's solved colors must opt into the cascade with data-ucs and select an intent role with data-mode. This page is the contract for those two attributes."
 ---
 
+import MarkupOptInExample from '/snippets/markup-optin-example.mdx';
+
 **This step is required.** The [runtime call sequence](/integration#the-runtime-call-sequence) writes solved values to `:root`, but no element picks them up automatically — each one opts in. Two attributes are the entire contract:
 
-```html
-<div data-ucs data-mode="brand">Solved brand surface</div>
-<div data-ucs data-mode="danger">Solved danger surface</div>
-```
+<MarkupOptInExample />
 
 **`data-ucs`** opts the element into the Substrate cascade. It takes no value.
 

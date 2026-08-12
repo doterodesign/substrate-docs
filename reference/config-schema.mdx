@@ -104,7 +104,7 @@ An intent's color may vary across the scheme axis with a **scheme track**: `sche
 
 ### `elevation` — required
 
-`step-light`, `step-dark`, and `sunken-step` — the per-level lightness offsets for elevated and sunken surfaces in each scheme direction.
+`step-light`, `step-dark`, and `sunken-step` — the per-level lightness offsets for elevated and sunken surfaces in each scheme direction. A typical shape keeps light-mode elevation subtle (`0.015`) and lets dark mode carry more (`0.04`).
 
 ### `typography` — required
 
@@ -112,7 +112,7 @@ An intent's color may vary across the scheme axis with a **scheme track**: `sche
 
 ### `shape`, `motion`, `space` — required
 
-`shape.radius-base` (px); `motion.duration-base` (ms) **and** `motion.easing` (both required); `space.unit` (px, a bare number).
+`shape.radius-base` (px) is the base for the runtime-scaled `--radius`, so corner rounding tracks the density slider; the bundled demo brands range from `4` to `12`. `motion.duration-base` (ms) **and** `motion.easing` are both required — values vary by brand character, from `75` with `linear` for a transactional surface to `200` with a custom cubic-bezier for a more polished one. `space.unit` (px, a bare number) is the single spatial unit everything composes from; the bundled demo brands all use `4`.
 
 ### `flexibility` — required
 
@@ -126,9 +126,50 @@ Named positions on the preference continuum: `mode`, `density`, and `contrast` a
 
 <Presets />
 
+A fuller example for the fictional Acme brand — five mode levels and a density map:
+
+```yaml
+presets:
+  mode:
+    light:
+      scheme: 0.02        # not pure white
+      contrast-factor: 1.0
+    dark:
+      scheme: 0.74        # brand-dark surface — never pure black
+      contrast-factor: 1.0
+    dimmed:
+      scheme: 0.55
+      contrast-factor: 0.95
+    high-contrast:
+      scheme: 0.02
+      contrast-factor: 1.3
+    dark-high-contrast:
+      scheme: 0.78
+      contrast-factor: 1.3
+  density:
+    compact:
+      density-factor: 0.85
+    default:
+      density-factor: 1.0
+    comfortable:
+      density-factor: 1.15
+```
+
+A brand that omits `presets.mode` does not get those five modes — they are authored, not automatic.
+
 ### `ramps` and `color` — optional
 
 `ramps` is an open map of ramp recipes — the only place a `--color-*` style output exists; a brand that opts in gets static stepped scales generated from an intent. Each recipe: `intent` (source intent name), `steps` (number list, lightest → darkest; pure labels — lightness is assigned by position), `lightest-l` (default `0.97`), `darkest-l` (default `0.18`), `gamut` (`srgb` | `p3`, default `srgb`), `outputs` (adapter list, default `[tailwind]`), `sample`.
+
+```yaml
+ramps:
+  brand-scale:
+    intent: brand
+    steps: [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+    lightest-l: 0.97
+    darkest-l: 0.18
+    gamut: srgb
+```
 
 The sibling top-level `color` key is ramp *orchestration*, not brand color: `color.ramps` holds `defaults` and per-intent settings (`stops`, `lightest-l`, `darkest-l`, `alpha-equivalent`, `surfaces`, `sample`), and `color.ramp-outputs` maps each platform (`web`, `ios`, `android`, `react-native`) to `formats`, `materialization` (`dynamic` | `static` | `both`), and an `include` list.
 
@@ -160,9 +201,15 @@ materials:
     background:
       filter: { blur: 2, saturate: 1.8 }
       alpha: 0.7
+      noise: 0.3
+    foreground:
+      filter: { brightness: 1.05 }
+
+effects:
+  blur-unit: 4    # px — blur values are multiples of this
 ```
 
-`effects` holds `blur-unit` (px) — filter blur values are emitted as multiples of it.
+`effects` holds `blur-unit` (px) — filter blur values are emitted as multiples of it (`blur(calc(var(--blur-unit) * 2))`). Backdrop filters are wrapped in an `@supports` guard, and a non-zero `noise` adds an SVG-turbulence grain overlay.
 
 ### `system` — optional
 

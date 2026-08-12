@@ -36,38 +36,21 @@ Because the axes are independent, they compose freely. A user who wants a dark i
 
 Named modes ship in the engine's scheme-preset table (`src/kernel/system/preferences.ts`). Each one sets exactly two axes — `scheme` and `contrastFactor` — and leaves the rest of the vector untouched:
 
-```ts
-light:            { scheme: 0,    contrastFactor: 1.0 }
-dark:             { scheme: 1,    contrastFactor: 1.0 }
-dimmed:           { scheme: 0.65, contrastFactor: 0.95 }
-highContrast:     { scheme: 0,    contrastFactor: 1.3 }
-darkHighContrast: { scheme: 1,    contrastFactor: 1.3 }
-```
+| Preset | `scheme` | `contrastFactor` | What it is |
+|---|---|---|---|
+| `light` | `0` | `1.0` | The light end with standard contrast. Surfaces sit near white, and the solver produces dark foregrounds against them. |
+| `dark` | `1` | `1.0` | The dark end. APCA polarity flips and the solver computes light-on-dark values; intents that declare a scheme track can shift hue or chroma here. |
+| `dimmed` | `0.65` | `0.95` | A **mid-track** position with slightly relaxed contrast. Dimmed is *lighter* than dark, not darker — it sits between the endpoints and is sampled continuously by the solver rather than being a recolor of either end. |
+| `highContrast` | `0` | `1.3` | The light end with every Lc target multiplied — the foreground target moves from Lc 75 to roughly Lc 97.5. Hue and chroma are unchanged, so the brand still looks like itself. |
+| `darkHighContrast` | `1` | `1.3` | The dark end with the same 1.3× multiplier, for users who want a dark interface *and* elevated contrast. |
 
 The keys are camelCase. There is no `high-contrast` and no `high-contrast-dark`.
-
-<Tabs>
-  <Tab title="light">
-    The light end of the scheme axis with standard contrast. Surfaces sit near white, and the solver produces dark foregrounds against them.
-  </Tab>
-  <Tab title="dark">
-    The dark end with standard contrast. APCA polarity flips and the solver computes light-on-dark values. Intents that declare a scheme track can shift hue or chroma here.
-  </Tab>
-  <Tab title="dimmed">
-    A **mid-track** position at `scheme: 0.65` with slightly relaxed contrast (`contrastFactor: 0.95`). Dimmed is *lighter* than dark, not darker — it sits between the endpoints and is sampled continuously by the solver rather than being a recolor of either end.
-  </Tab>
-  <Tab title="highContrast">
-    The light end with `contrastFactor: 1.3`. Every Lc target is multiplied, so the foreground target moves from Lc 75 to roughly Lc 97.5. Hue and chroma are unchanged — the brand still looks like itself.
-  </Tab>
-  <Tab title="darkHighContrast">
-    The dark end with the same 1.3× multiplier, for users who want a dark interface *and* elevated contrast.
-  </Tab>
-</Tabs>
 
 Applying a preset is a two-field assignment; nothing about the other axes changes:
 
 ```ts
 import { defaultPreferences } from '@substrate/engine';
+import MarkupOptInExample from '/snippets/markup-optin-example.mdx';
 
 const prefs = defaultPreferences();
 prefs.scheme = 1;             // darkHighContrast
@@ -105,10 +88,7 @@ Nothing about that call sequence is specific to a preset — an arbitrary `schem
 
 Elements opt into the resulting cascade with `data-ucs`, and pick an intent role with `data-mode`:
 
-```html
-<div data-ucs data-mode="brand">Solved brand surface</div>
-<div data-ucs data-mode="danger">Solved danger surface</div>
-```
+<MarkupOptInExample />
 
 `data-mode` is matched with `~=` against a space-separated token list, so an element can carry several roles at once. It is a role selector, not a theme switch.
 

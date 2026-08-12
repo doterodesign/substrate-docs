@@ -1,0 +1,17 @@
+{/* Canonical runtime initialization example. Single source — imported wherever
+    the three-call sequence is shown. Narrative home: /integration. */}
+
+```ts
+import '@substrate/generated/global/css/index.gen.css';
+import {
+  syncBrandToCssVars, syncPrefsToCssVars, updateAllVars,
+  defaultPreferences, BRAND_REGISTRY,
+} from '@substrate/engine';
+
+const brand = BRAND_REGISTRY[0];
+const prefs = defaultPreferences();
+
+syncBrandToCssVars(brand);   // data-brand + typography, shape, motion, spacing vars
+syncPrefsToCssVars(prefs);   // --scheme, --contrast-factor, --density, …
+updateAllVars(brand, prefs); // solves APCA, writes per-intent --ucs-* to :root
+```

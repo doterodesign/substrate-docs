@@ -89,139 +89,24 @@ flexibility:
   motion: { min: 0, max: 1 }
 ```
 
-<AccordionGroup>
-  <Accordion title="intents">
-    An **open map** of color intents. Only `brand` and `neutral` are required — the loader throws if either is missing. Every other intent is the brand's own choice, and there is no built-in-versus-custom split: a custom intent like `acme-cyan` gets identical treatment to `danger`. Each intent carries `hue` (0–360) and `chroma` (0–~0.4); lightness is never authored, because the solver owns it. See [Color](/brand-config/color).
-  </Accordion>
+## Every section at a glance
 
-  <Accordion title="elevation">
-    Lightness steps the solver applies to raised and recessed surfaces: `step-light` for the light end of the scheme axis, `step-dark` for the dark end, and `sunken-step` for recessed surfaces. The Acme example keeps light-mode elevation subtle at `0.015` and lets dark mode carry more at `0.04`.
-  </Accordion>
+Field-by-field detail, defaults, and a worked example for every section live in the [Config Schema reference](/reference/config-schema) — each row links straight to it. The authoring guides in this section cover the *why* per domain.
 
-  <Accordion title="typography">
-    `heading-family` and `body-family` are required; `mono-family` is optional. `base-font-size` is a number in **rem** (every bundled demo brand uses `1`), not a pixel string. `scale-ratio` is the modular ratio the continuous type scale raises to a power — `1.25` (major third) and `1.2` (minor third) are typical choices. The optional `fluid` block (`rate`, `floor`, `ceiling`, `quantum`) and `density` block (`font-size-k`, `font-weight-k`) tune responsive and density-linked behavior. See [Typography](/brand-config/typography).
-  </Accordion>
-
-  <Accordion title="shape">
-    `radius-base` in pixels. It is the base for the runtime-scaled `--radius`, so corner rounding tracks the density slider rather than being fixed. The bundled demo brands range from `4` to `12`.
-  </Accordion>
-
-  <Accordion title="motion">
-    `duration-base` in milliseconds and `easing` as a CSS easing function. Both are required. Values vary widely by brand character — `75` with `linear` for a transactional surface, `200` with a custom cubic-bezier for a more polished one. See [Motion](/brand-config/motion).
-  </Accordion>
-
-  <Accordion title="space">
-    A single `unit` in pixels. All of the bundled demo brands use `4`. There is no spacing ladder; this one unit is multiplied at each use site by the runtime density and scale factors. See [Spacing & Density](/brand-config/spacing-density).
-  </Accordion>
-
-  <Accordion title="flexibility">
-    The brand's policy on how far users may move each preference axis. `scheme` is a boolean; `contrast`, `density`, `type-scale`, and `motion` each take `{ min, max }` bounds; the optional `effects` boolean gates visual effects. This is how a brand says "our users may go down to 0.8 density but no further" — the runtime clamps the sliders to these bounds.
-  </Accordion>
-</AccordionGroup>
-
-## Optional sections
-
-<AccordionGroup>
-  <Accordion title="presets">
-    Named tuning bundles over the continuous preference axes, in three open maps: `mode`, `density`, and `contrast`. Each level declares its position on the underlying slider — a mode level needs both `scheme` and `contrast-factor`; a density level needs `density-factor`; a contrast level needs `contrast-factor`. Level names are brand-defined, not an enum. The Acme example's `presets.mode` block:
-
-    ```yaml
-    presets:
-      mode:
-        light:
-          scheme: 0.02        # not pure white
-          contrast-factor: 1.0
-        dark:
-          scheme: 0.74        # brand-dark surface — never pure black
-          contrast-factor: 1.0
-        dimmed:
-          scheme: 0.55
-          contrast-factor: 0.95
-        high-contrast:
-          scheme: 0.02
-          contrast-factor: 1.3
-        dark-high-contrast:
-          scheme: 0.78
-          contrast-factor: 1.3
-      density:
-        compact:
-          density-factor: 0.85
-        default:
-          density-factor: 1.0
-        comfortable:
-          density-factor: 1.15
-    ```
-
-    A brand that omits `presets.mode` does not get those five modes — they are authored, not automatic.
-  </Accordion>
-
-  <Accordion title="gradients">
-    An open map of named gradient recipes. Each has a `type` (`linear`, `radial`, or `conic`), geometry (`angle` for linear and conic, `shape` and `origin` for radial), and a list of `stops`. Unlike intents, a gradient stop **does** author `lightness` — it references an intent by name and pins a lightness and position:
-
-    ```yaml
-    gradients:
-      aurora:
-        type: linear
-        angle: 120
-        stops:
-          - intent: brand
-            lightness: 0.50
-            at: 0
-          - intent: acme-pink
-            lightness: 0.72
-            at: 100
-    ```
-  </Accordion>
-
-  <Accordion title="ramps">
-    An open map of ramp recipes that generate stepped opaque scales from an intent — for Tailwind-style palettes and DTCG export. A recipe names its source `intent`, a list of `steps` (pure labels, lightest to darkest — lightness comes from position, not the label), and optionally `lightest-l` (default `0.97`), `darkest-l` (default `0.18`), `gamut` (`srgb` or `p3`), `outputs`, and `sample`:
-
-    ```yaml
-    ramps:
-      brand-scale:
-        intent: brand
-        steps: [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]
-        lightest-l: 0.97
-        darkest-l: 0.18
-        gamut: srgb
-    ```
-
-    The related top-level `color` key holds ramp orchestration — `color.ramps` defaults per intent and `color.ramp-outputs` per-platform format lists — it is not where you put brand colors. See [Color](/brand-config/color).
-  </Accordion>
-
-  <Accordion title="materials">
-    An open map of named surface treatments applied through the `data-mode` token list (`[data-mode~="frosted"]`). Each material declares per-channel blocks — `background`, `foreground`, `border` — and each channel can carry a `filter` composition (`blur`, `saturate`, `brightness`, `contrast`, `grayscale`, `hue-rotate`, `invert`) plus channel properties like `alpha` and `noise` (a grain overlay, 0–1). A frosted-glass material:
-
-    ```yaml
-    materials:
-      frosted:
-        background:
-          filter: { blur: 2, saturate: 1.8 }
-          alpha: 0.7
-          noise: 0.3
-        foreground:
-          filter: { brightness: 1.05 }
-
-    effects:
-      blur-unit: 4    # px — blur values are multiples of this
-    ```
-
-    Blur values are multiples of the base unit from the optional `effects: { blur-unit: … }` block, emitted as `blur(calc(var(--blur-unit) * 2))`. Backdrop filters are wrapped in an `@supports` guard, and a non-zero `noise` adds an SVG-turbulence grain overlay.
-  </Accordion>
-
-  <Accordion title="system">
-    A free-form map of system-config overrides, deep-merged over Substrate's defaults for this brand only. The cascade is defaults → user override → brand `system:` block, so use it to change engine-level tuning a brand needs to diverge on, rather than forking the engine. For example, a brand with a display face that wants looser optical line-height tracking:
-
-    ```yaml
-    system:
-      typography:
-        optical:
-          line-height-rate: 0.14    # engine default: 0.12
-    ```
-
-    Any key from the engine's `system.config.yaml` tuning surface — optical typography rates and clamps, CVD safe arcs, layout structure thresholds — can be overridden here.
-  </Accordion>
-</AccordionGroup>
+| Section | Requirement | What it authors |
+|---|---|---|
+| [`intents`](/reference/config-schema#intents-—-required) | Required | Open map of `hue`/`chroma` colors; only `brand` and `neutral` are mandatory, and custom intents are first-class. See [Color](/brand-config/color). |
+| [`elevation`](/reference/config-schema#elevation-—-required) | Required | Lightness steps for raised and sunken surfaces, per scheme direction. |
+| [`typography`](/reference/config-schema#typography-—-required) | Required | Font stacks, base size in rem, the modular `scale-ratio`, optional `fluid` and `density` blocks. See [Typography](/brand-config/typography). |
+| [`shape`](/reference/config-schema#shape-motion-space-—-required) | Required | `radius-base` in px — scaled by density at runtime, never fixed. |
+| [`motion`](/reference/config-schema#shape-motion-space-—-required) | Required | `duration-base` and `easing`, both required. See [Motion](/brand-config/motion). |
+| [`space`](/reference/config-schema#shape-motion-space-—-required) | Required | One spatial `unit` in px — there is no spacing ladder. See [Spacing & Density](/brand-config/spacing-density). |
+| [`flexibility`](/reference/config-schema#flexibility-—-required) | Required | `{ min, max }` bounds per preference axis — the runtime clamps the sliders to them. |
+| [`presets`](/reference/config-schema#presets-—-optional) | Optional | Named positions on the preference continuum: `mode`, `density`, and `contrast` maps. |
+| [`gradients`](/reference/config-schema#gradients-—-optional) | Optional | Named gradient recipes — the one place lightness is authored. |
+| [`ramps`](/reference/config-schema#ramps-and-color-—-optional) | Optional | Stepped opaque scales generated from an intent, for Tailwind-style palettes and DTCG export. |
+| [`materials`](/reference/config-schema#materials-and-effects-—-optional) | Optional | Surface treatments — per-channel filters, alpha, noise — applied via `data-mode`. |
+| [`system`](/reference/config-schema#system-—-optional) | Optional | Per-brand deep-merge overrides of the engine's tuning defaults. |
 
 ## What the loader does with it
 
