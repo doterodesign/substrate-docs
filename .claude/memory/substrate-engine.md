@@ -20,7 +20,7 @@
 ## Config
 - YAML only: `src/brands/<family>/config.global.yaml` + `<sub>/config.yaml`
   (deltas), or flat `<name>/config.yaml`. Kebab-case authored → camelCase
-  normalized. Slug derived from directory (`delta-skymiles`).
+  normalized. Slug derived from directory (`{parent}-{sub}`).
 - `intents` is an OPEN map; only brand + neutral required; conventional names
   brand/neutral/danger/warning/success/info/beta. hue + chroma only —
   lightness solver-owned. Scheme tracks (`scheme-end`/`scheme-track`/
@@ -30,8 +30,13 @@
   flexibility (per-axis min/max bounds). presets.mode/density/contrast are
   open maps of brand-named levels.
 - Inheritance: recursive deep merge, null deletes, arrays replace, deltas-only
-  enforced by validator. Six shipped families: delta, descript, draftkings,
-  google, magic-patterns, stripe.
+  enforced by validator. The engine bundles six demo brand families named
+  after real companies (see engine `src/brands/`) — they are fictional
+  demonstrations, NOT clients. LEGAL POLICY: never name them in this repo
+  (published pages, memory, reports, manifest — anywhere). Docs use the
+  fictional cast `acme` (standalone) and `aurora`/`aurora-rewards` (family);
+  pages referencing the bundled catalog say "demo brand families" and import
+  `snippets/demo-brands-note.mdx`.
 
 ## Web output
 - Namespaces: `--ucs-{intent}-{hue,chroma,fg-l,border-l,surface-l,pattern}`,

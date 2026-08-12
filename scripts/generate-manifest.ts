@@ -85,6 +85,23 @@ const npmScripts = sorted(Object.keys(enginePkg.scripts ?? {}));
 const swiftFiles = readAll(['generated/**/*.swift', 'packages/kernel-swift/Sources/**/*.swift']);
 const kotlinFiles = readAll(['generated/**/*.kt', 'packages/kernel-kotlin/src/main/**/*.kt']);
 const webComponentFiles = readAll(['src/components/**/*.tsx', 'src/components/**/*.ts']);
+
+// Brand-scoped artifact symbols (<PascalSlug>Brand, <PascalSlug>MaterialScheme,
+// per-brand component descriptors, …) are excluded: the docs must never
+// reference the bundled demo brands by name, so the manifest carries only
+// brand-agnostic symbols. Prefixes derive from the brand directory names —
+// nothing is hardcoded. The boundary check keeps a prefix from swallowing an
+// unrelated symbol that merely shares its spelling (PascalCase segment must
+// end where the prefix ends).
+const pascal = (slug: string) =>
+  slug.split('-').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+const brandPrefixes = sorted(
+  globSync('src/brands/*/', { cwd: ENGINE }).map((dir) => pascal(dir.split('/').filter(Boolean).pop()!)),
+);
+const isBrandScoped = (sym: string) =>
+  !sym.startsWith('Substrate') &&
+  brandPrefixes.some((p) => sym.startsWith(p) && (sym.length === p.length || /[A-Z0-9]/.test(sym[p.length])));
+
 const nativeSymbols = sorted([
   ...matches(swiftFiles, /(?:enum|struct|class|protocol|typealias)\s+([A-Z][A-Za-z0-9_]*)/g),
   ...matches(swiftFiles, /^import\s+([A-Z][A-Za-z0-9_]*)/gm),
@@ -92,7 +109,7 @@ const nativeSymbols = sorted([
   // Substrate-branded client-owned web component exports (e.g. SubstrateSurface,
   // SubstrateButton) — the checker validates every Substrate<X> spelling.
   ...matches(webComponentFiles, /export\s+(?:const|function|class|interface|type)\s+(Substrate[A-Za-z0-9_]*)/g),
-]);
+]).filter((sym) => !isBrandScoped(sym));
 
 // Config keys from shipped brand YAML + the system config overlay source.
 // Children of open maps are brand-chosen names, not schema keys: their KEY

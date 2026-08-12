@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, mkdtempSync } from 'node:fs';
+import { readFileSync, mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -78,4 +78,19 @@ test('manifest includes sentinel identifiers and excludes known fabrications', {
     assert.ok(!c.cssVariables.exact.includes(fake), `fabrication present: ${fake}`);
   }
   assert.ok(!c.nativeSymbols.exact.includes('SubstrateTokens'));
+
+  // Brand-scoped artifact symbols must be excluded wholesale: the docs may
+  // never reference the bundled demo brands by name (legal), so the manifest
+  // carries only brand-agnostic symbols. The brand list is derived from the
+  // engine checkout itself — an independent source, no names hardcoded here.
+  const brandPrefixes = readdirSync(join(ENGINE, 'src/brands'), { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name.split('-').map((s) => s[0].toUpperCase() + s.slice(1)).join(''));
+  for (const sym of c.nativeSymbols.exact) {
+    if (sym.startsWith('Substrate')) continue;
+    for (const p of brandPrefixes) {
+      const scoped = sym.startsWith(p) && (sym.length === p.length || /[A-Z0-9]/.test(sym[p.length]));
+      assert.ok(!scoped, `brand-scoped symbol leaked into manifest: ${sym}`);
+    }
+  }
 });

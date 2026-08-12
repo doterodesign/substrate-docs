@@ -30,12 +30,12 @@ On the web, the runtime writes the solved primitives as `--ucs-*` custom propert
 
 ## Color Intent
 
-Colors in Substrate are defined as *intents* rather than hex values. An intent describes a color's perceptual character — its hue and chroma — without fixing its lightness. Lightness is computed by the contrast solver at every point on the scheme axis. Intents live in an open `intents:` map in the brand YAML; only `brand` and `neutral` are required, and a brand may declare any custom intents it needs. From the shipped Stripe config (`src/brands/stripe/config.global.yaml`):
+Colors in Substrate are defined as *intents* rather than hex values. An intent describes a color's perceptual character — its hue and chroma — without fixing its lightness. Lightness is computed by the contrast solver at every point on the scheme axis. Intents live in an open `intents:` map in the brand YAML; only `brand` and `neutral` are required, and a brand may declare any custom intents it needs. An example `config.global.yaml` for a fictional brand, Acme:
 
 ```yaml
 intents:
   brand:
-    hue: 277        # Stripe Indigo
+    hue: 277        # Acme Indigo
     chroma: 0.268
   neutral:
     hue: 251        # cool-tinted neutrals
@@ -44,7 +44,7 @@ intents:
     hue: 11
     chroma: 0.228
   # Custom intents are first-class — same treatment as the system names
-  stripe-cyan:
+  acme-cyan:
     hue: 228
     chroma: 0.147
 ```
@@ -59,7 +59,7 @@ intents:
     scheme-end: { hue: 220, chroma: 0.04 }  # slightly richer chroma at the dark end
 ```
 
-Letting chroma rise toward the dark end is a common technique for keeping a color's perceived character consistent across luminance extremes, where colors tend to read as less saturated. Note that scheme tracks are an available capability, but no shipped brand currently uses one — the six shipped brand families all author constant hue/chroma per intent.
+Letting chroma rise toward the dark end is a common technique for keeping a color's perceived character consistent across luminance extremes, where colors tend to read as less saturated. Note that scheme tracks are an available capability, but none of the engine's bundled demo brands currently uses one — they all author constant hue/chroma per intent.
 
 ### Why OKLCH?
 
@@ -129,23 +129,23 @@ Because these are presets over a continuum, users are not limited to them: `sche
 
 ## Cascading Inheritance
 
-Substrate is designed to support multi-brand systems where many brands share the same mathematical model. Inheritance is structural: a brand family directory contains a shared `config.global.yaml`, and each sub-brand directory contains a `config.yaml` holding **only its deltas**. From the shipped Delta family (`src/brands/delta/skymiles/config.yaml`):
+Substrate is designed to support multi-brand systems where many brands share the same mathematical model. Inheritance is structural: a brand family directory contains a shared `config.global.yaml`, and each sub-brand directory contains a `config.yaml` holding **only its deltas**. An example sub-brand config for a fictional airline family, Aurora Airways, and its loyalty program (`src/brands/aurora/rewards/config.yaml`):
 
 ```yaml
-name: Delta Air Lines - SkyMiles
+name: Aurora Airways - Rewards
 
 intents:
   brand:
     chroma: 0.220        # hue: 15 is inherited from ../config.global.yaml
-  medallion-gold:
+  tier-gold:
     hue: 51
     chroma: 0.116
 
 typography:
-  heading-family: "'Whitney Condensed', Whitney, Verdana, system-ui, sans-serif"
+  heading-family: "'Aurora Display', Verdana, system-ui, sans-serif"
 ```
 
-The two layers are combined by a **recursive deep merge** — partial objects merge field-by-field, so SkyMiles can override just `intents.brand.chroma` and inherit the hue. Setting a key to `null` deletes it from the merged result; arrays replace wholesale. Deltas-only authoring isn't just a convention: the validator flags any sub-brand value that merely repeats its parent's. The merged brand gets the slug `delta-skymiles` (parent–child), which is what appears in the runtime's `data-brand` attribute.
+The two layers are combined by a **recursive deep merge** — partial objects merge field-by-field, so the Rewards sub-brand can override just `intents.brand.chroma` and inherit the hue. Setting a key to `null` deletes it from the merged result; arrays replace wholesale. Deltas-only authoring isn't just a convention: the validator flags any sub-brand value that merely repeats its parent's. The merged brand gets the slug `aurora-rewards` (parent–child), which is what appears in the runtime's `data-brand` attribute.
 
 This cascading model means:
 
@@ -176,7 +176,7 @@ Substrate emits the same brand model in each platform's native idiom, under `gen
     }
     ```
 
-    And per-mode baked token files provide the no-JS floor — from `generated/brands/delta/booking/css/tokens.light.gen.css`:
+    And per-mode baked token files provide the no-JS floor — the shape of `generated/brands/<brand>/<sub-brand>/css/tokens.light.gen.css`:
 
     ```css
     :root {
@@ -190,7 +190,7 @@ Substrate emits the same brand model in each platform's native idiom, under `gen
     ```
   </Tab>
   <Tab title="iOS (Swift)">
-    Per-mode resolved token sets — separate files per mode (`system.light.gen.swift`, `system.dark.gen.swift`, …), each intent a surface/text/border triple in Display P3. From `generated/brands/magic-patterns/swift/system.light.gen.swift`:
+    Per-mode resolved token sets — separate files per mode (`system.light.gen.swift`, `system.dark.gen.swift`, …), each intent a surface/text/border triple in Display P3. The shape of `generated/brands/<brand>/swift/system.light.gen.swift`:
 
     ```swift
     import SwiftUI
@@ -229,7 +229,7 @@ Substrate emits the same brand model in each platform's native idiom, under `gen
     ```
   </Tab>
   <Tab title="Android (Kotlin)">
-    The Compose output mirrors Swift: per-mode files (`system.light.gen.kt`, `system.dark.gen.kt`, …) each declaring the same top-level object, so an app includes exactly one per build variant. From `generated/brands/magic-patterns/compose/system.light.gen.kt`:
+    The Compose output mirrors Swift: per-mode files (`system.light.gen.kt`, `system.dark.gen.kt`, …) each declaring the same top-level object, so an app includes exactly one per build variant. The shape of `generated/brands/<brand>/compose/system.light.gen.kt`:
 
     ```kotlin
     import androidx.compose.ui.graphics.Color

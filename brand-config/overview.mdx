@@ -4,7 +4,11 @@ sidebarTitle: "Overview"
 description: "Every Substrate brand is one YAML config: an open intents map plus elevation, typography, shape, motion, space, and flexibility. Learn the file layout, the required sections, and how keys are normalized at load."
 ---
 
+import DemoBrandsNote from '/snippets/demo-brands-note.mdx';
+
 A brand in Substrate is a directory containing a YAML config. That file is the only place you author brand identity — the pipeline reads it and emits solver inputs, style descriptors, and baked per-mode token files for every platform. There is no JSON config, no root-level config file, and no registration step: brands are discovered by scanning the brands directory.
+
+<DemoBrandsNote />
 
 ## File layout
 
@@ -12,27 +16,27 @@ Two shapes are supported, and which one you get depends entirely on the director
 
 <Tabs>
   <Tab title="Brand family">
-    A family directory holds a shared `config.global.yaml`, and each sub-brand directory holds a `config.yaml` containing only its deltas. This is how the Delta, Stripe, Google, Descript, and DraftKings brands ship.
+    A family directory holds a shared `config.global.yaml`, and each sub-brand directory holds a `config.yaml` containing only its deltas. Most of the engine's bundled demo brands ship this way. For a fictional airline family, Aurora Airways:
 
     ```
-    src/brands/delta/
+    src/brands/aurora/
     ├── config.global.yaml      # shared foundation
     ├── booking/config.yaml     # deltas only
-    ├── skymiles/config.yaml    # deltas only
+    ├── rewards/config.yaml     # deltas only
     └── premium/config.yaml     # deltas only
     ```
 
-    Each sub-brand becomes its own brand, with the merged slug `{parent}-{sub}` — `delta-skymiles`. See [Inheritance](/multi-brand/inheritance) for the merge rules.
+    Each sub-brand becomes its own brand, with the merged slug `{parent}-{sub}` — `aurora-rewards`. See [Inheritance](/multi-brand/inheritance) for the merge rules.
   </Tab>
   <Tab title="Flat brand">
-    A brand with no sub-brands is a single directory with a single `config.yaml`. Magic Patterns ships this way.
+    A brand with no sub-brands is a single directory with a single `config.yaml` — here, a fictional standalone brand, Acme:
 
     ```
-    src/brands/magic-patterns/
+    src/brands/acme/
     └── config.yaml
     ```
 
-    The slug is the directory name — `magic-patterns`.
+    The slug is the directory name — `acme`.
   </Tab>
 </Tabs>
 
@@ -42,12 +46,12 @@ Two shapes are supported, and which one you get depends entirely on the director
 
 ## The required sections
 
-Seven sections are non-optional. A config missing any of them is incomplete, and a config missing the required intents fails to load outright. Here is the shipped Stripe foundation (`src/brands/stripe/config.global.yaml`), trimmed to the required sections:
+Seven sections are non-optional. A config missing any of them is incomplete, and a config missing the required intents fails to load outright. Here is an example foundation for the fictional Acme brand (`src/brands/acme/config.global.yaml`), trimmed to the required sections:
 
 ```yaml
 intents:
   brand:
-    hue: 277        # Stripe Indigo
+    hue: 277        # Acme Indigo
     chroma: 0.268
   neutral:
     hue: 251        # cool-tinted neutrals
@@ -62,8 +66,8 @@ elevation:
   sunken-step: 0.02
 
 typography:
-  heading-family: "'Sohne', 'Inter', system-ui, sans-serif"
-  body-family: "'Sohne', 'Inter', system-ui, sans-serif"
+  heading-family: "'Acme Sans', 'Inter', system-ui, sans-serif"
+  body-family: "'Acme Sans', 'Inter', system-ui, sans-serif"
   base-font-size: 1
   scale-ratio: 1.25
 
@@ -87,27 +91,27 @@ flexibility:
 
 <AccordionGroup>
   <Accordion title="intents">
-    An **open map** of color intents. Only `brand` and `neutral` are required — the loader throws if either is missing. Every other intent is the brand's own choice, and there is no built-in-versus-custom split: a custom intent like `stripe-cyan` gets identical treatment to `danger`. Each intent carries `hue` (0–360) and `chroma` (0–~0.4); lightness is never authored, because the solver owns it. See [Color](/brand-config/color).
+    An **open map** of color intents. Only `brand` and `neutral` are required — the loader throws if either is missing. Every other intent is the brand's own choice, and there is no built-in-versus-custom split: a custom intent like `acme-cyan` gets identical treatment to `danger`. Each intent carries `hue` (0–360) and `chroma` (0–~0.4); lightness is never authored, because the solver owns it. See [Color](/brand-config/color).
   </Accordion>
 
   <Accordion title="elevation">
-    Lightness steps the solver applies to raised and recessed surfaces: `step-light` for the light end of the scheme axis, `step-dark` for the dark end, and `sunken-step` for recessed surfaces. Stripe keeps light-mode elevation subtle at `0.015` and lets dark mode carry more at `0.04`.
+    Lightness steps the solver applies to raised and recessed surfaces: `step-light` for the light end of the scheme axis, `step-dark` for the dark end, and `sunken-step` for recessed surfaces. The Acme example keeps light-mode elevation subtle at `0.015` and lets dark mode carry more at `0.04`.
   </Accordion>
 
   <Accordion title="typography">
-    `heading-family` and `body-family` are required; `mono-family` is optional. `base-font-size` is a number in **rem** (every shipped brand uses `1`), not a pixel string. `scale-ratio` is the modular ratio the continuous type scale raises to a power — 1.25 for Stripe and Magic Patterns, 1.2 for Delta. The optional `fluid` block (`rate`, `floor`, `ceiling`, `quantum`) and `density` block (`font-size-k`, `font-weight-k`) tune responsive and density-linked behavior. See [Typography](/brand-config/typography).
+    `heading-family` and `body-family` are required; `mono-family` is optional. `base-font-size` is a number in **rem** (every bundled demo brand uses `1`), not a pixel string. `scale-ratio` is the modular ratio the continuous type scale raises to a power — `1.25` (major third) and `1.2` (minor third) are typical choices. The optional `fluid` block (`rate`, `floor`, `ceiling`, `quantum`) and `density` block (`font-size-k`, `font-weight-k`) tune responsive and density-linked behavior. See [Typography](/brand-config/typography).
   </Accordion>
 
   <Accordion title="shape">
-    `radius-base` in pixels. It is the base for the runtime-scaled `--radius`, so corner rounding tracks the density slider rather than being fixed. Delta uses `4`, Stripe `6`, Magic Patterns `12`.
+    `radius-base` in pixels. It is the base for the runtime-scaled `--radius`, so corner rounding tracks the density slider rather than being fixed. The bundled demo brands range from `4` to `12`.
   </Accordion>
 
   <Accordion title="motion">
-    `duration-base` in milliseconds and `easing` as a CSS easing function. Both are required. Shipped values vary widely — Delta uses `75` with `linear`, Stripe `200` with a custom cubic-bezier. See [Motion](/brand-config/motion).
+    `duration-base` in milliseconds and `easing` as a CSS easing function. Both are required. Values vary widely by brand character — `75` with `linear` for a transactional surface, `200` with a custom cubic-bezier for a more polished one. See [Motion](/brand-config/motion).
   </Accordion>
 
   <Accordion title="space">
-    A single `unit` in pixels. All six shipped brands use `4`. There is no spacing ladder; this one unit is multiplied at each use site by the runtime density and scale factors. See [Spacing & Density](/brand-config/spacing-density).
+    A single `unit` in pixels. All of the bundled demo brands use `4`. There is no spacing ladder; this one unit is multiplied at each use site by the runtime density and scale factors. See [Spacing & Density](/brand-config/spacing-density).
   </Accordion>
 
   <Accordion title="flexibility">
@@ -119,7 +123,7 @@ flexibility:
 
 <AccordionGroup>
   <Accordion title="presets">
-    Named tuning bundles over the continuous preference axes, in three open maps: `mode`, `density`, and `contrast`. Each level declares its position on the underlying slider — a mode level needs both `scheme` and `contrast-factor`; a density level needs `density-factor`; a contrast level needs `contrast-factor`. Level names are brand-defined, not an enum. Stripe's `presets.mode` block:
+    Named tuning bundles over the continuous preference axes, in three open maps: `mode`, `density`, and `contrast`. Each level declares its position on the underlying slider — a mode level needs both `scheme` and `contrast-factor`; a density level needs `density-factor`; a contrast level needs `contrast-factor`. Level names are brand-defined, not an enum. The Acme example's `presets.mode` block:
 
     ```yaml
     presets:
@@ -128,7 +132,7 @@ flexibility:
           scheme: 0.02        # not pure white
           contrast-factor: 1.0
         dark:
-          scheme: 0.74        # Brand Dark 900 — Stripe never uses pure black
+          scheme: 0.74        # brand-dark surface — never pure black
           contrast-factor: 1.0
         dimmed:
           scheme: 0.55
@@ -163,7 +167,7 @@ flexibility:
           - intent: brand
             lightness: 0.50
             at: 0
-          - intent: stripe-pink
+          - intent: acme-pink
             lightness: 0.72
             at: 100
     ```
@@ -184,7 +188,7 @@ flexibility:
 
 ## What the loader does with it
 
-Discovery is a directory scan. For each directory under the brands root, the loader checks for `config.global.yaml` (family) or `config.yaml` (flat), parses the YAML, normalizes the keys, deep-merges family and sub-brand layers where both exist, and stamps the `slug` from the directory structure. That slug is what appears in generated CSS as `[data-brand="delta-skymiles"]`.
+Discovery is a directory scan. For each directory under the brands root, the loader checks for `config.global.yaml` (family) or `config.yaml` (flat), parses the YAML, normalizes the keys, deep-merges family and sub-brand layers where both exist, and stamps the `slug` from the directory structure. That slug is what appears in generated CSS as `[data-brand="aurora-rewards"]`.
 
 Two validations run at load. The intent roster must contain `brand` and `neutral`, or the load throws a missing-required-intent error. Any intent using scheme-track grammar is desugared and validated, including reference cycles and unknown intent names.
 

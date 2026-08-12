@@ -13,18 +13,18 @@ Colors live under a top-level `intents:` key. It is an **open map**: only `brand
 - **`hue`** — the color angle, 0 to 360
 - **`chroma`** — colorfulness, 0 (achromatic) to roughly 0.4, with the real ceiling depending on hue and display gamut
 
-From the shipped Stripe foundation (`src/brands/stripe/config.global.yaml`):
+An example foundation config for a fictional brand, Acme (`src/brands/acme/config.global.yaml`):
 
 ```yaml
 intents:
   brand:
-    hue: 277        # Stripe Indigo — #533afd
+    hue: 277        # Acme Indigo
     chroma: 0.268
   neutral:
-    hue: 251        # cool-tinted neutrals, pulled from Ink #0d253d
+    hue: 251        # cool-tinted neutrals
     chroma: 0.012
   danger:
-    hue: 11         # Ruby #ea2261
+    hue: 11         # ruby red
     chroma: 0.228
   warning:
     hue: 71
@@ -35,24 +35,24 @@ intents:
   info:
     hue: 256
     chroma: 0.188
-  # Stripe's signature gradient palette — custom intents, same treatment
-  stripe-cyan:
+  # Acme's signature gradient palette — custom intents, same treatment
+  acme-cyan:
     hue: 228
     chroma: 0.147
-  stripe-mint:
+  acme-mint:
     hue: 165
     chroma: 0.112
 ```
 
 <Note>
-  Intent names are your identifiers, so they round-trip verbatim — the kebab-case-to-camelCase normalization described in the [config overview](/brand-config/overview) does not touch the direct children of `intents`. `stripe-cyan` stays `stripe-cyan`.
+  Intent names are your identifiers, so they round-trip verbatim — the kebab-case-to-camelCase normalization described in the [config overview](/brand-config/overview) does not touch the direct children of `intents`. `acme-cyan` stays `acme-cyan`.
 </Note>
 
 ## Conventional names, not reserved ones
 
 There is no built-in-versus-custom split in Substrate. The pipeline reads whatever intents a brand declares; it never consults a fixed list to decide what a brand "should" have. Custom intents produce the same solver primitives, the same baked per-mode tokens, and the same platform output as any other.
 
-What does exist is a convention. Across the shipped brands, these names recur and carry consistent meaning:
+What does exist is a convention. Across the engine's bundled demo brands, these names recur and carry consistent meaning:
 
 | Intent | Conventional meaning |
 |---|---|
@@ -68,7 +68,7 @@ What does exist is a convention. Across the shipped brands, these names recur an
   The destructive intent is `danger`, not `error`, and the identity intent is `brand`, not `primary`. Those two names are the most common source of a config that loads but produces nothing where you expected it.
 </Warning>
 
-Brands lean on custom intents heavily. Delta declares `delta-navy` and `delta-burgundy`; SkyMiles adds `medallion-gold`, `medallion-silver`, `medallion-platinum`, `skymiles-navy`, and `tier-accent`; Magic Patterns adds `creation`, `teal`, `magic-blue`, and `magic-purple`.
+Brands lean on custom intents heavily. A fictional Aurora Airways family might declare `aurora-navy` and `aurora-burgundy` at the family level, while its Rewards sub-brand adds loyalty-tier intents like `tier-gold`, `tier-silver`, `tier-platinum`, and `tier-accent` — each getting the full solver treatment.
 
 ## Intents that vary across the scheme axis
 
@@ -103,7 +103,7 @@ An intent's hue and chroma can be a function of the scheme position rather than 
   </Tab>
 </Tabs>
 
-These three grammar keys keep their kebab spelling everywhere, because the kernel's track evaluator consumes them verbatim. Scheme tracks are a supported capability that no shipped brand currently uses — all six brand families author constant hue and chroma per intent.
+These three grammar keys keep their kebab spelling everywhere, because the kernel's track evaluator consumes them verbatim. Scheme tracks are a supported capability that none of the engine's bundled demo brands currently uses — they all author constant hue and chroma per intent.
 
 ## Lightness: the one exception
 
@@ -120,7 +120,7 @@ gradients:
       - intent: brand
         lightness: 0.50
         at: 0
-      - intent: stripe-pink
+      - intent: acme-pink
         lightness: 0.72
         at: 100
 ```
@@ -133,23 +133,23 @@ For every declared intent, the runtime writes a set of `--ucs-*` solver primitiv
 - `--ucs-{intent}-fg-l`, `--ucs-{intent}-border-l`, `--ucs-{intent}-surface-l` — solved lightness for each channel against the actual surface
 - `--ucs-{intent}-pattern` — the non-color redundancy channel
 
-The generated brand CSS registers these with `@property` so they animate and inherit predictably. From `generated/brands/delta/skymiles/css/brand.gen.css`:
+The generated brand CSS registers these with `@property` so they animate and inherit predictably. The shape of a brand's generated `css/brand.gen.css`, here for a custom `aurora-navy` intent:
 
 ```css
-@property --ucs-delta-navy-hue {
+@property --ucs-aurora-navy-hue {
   syntax: "<number>";
   initial-value: 0;
   inherits: true;
 }
 
-@property --ucs-delta-navy-fg-l {
+@property --ucs-aurora-navy-fg-l {
   syntax: "<number>";
   initial-value: 0;
   inherits: true;
 }
 ```
 
-Alongside the live primitives, the pipeline bakes a resolved surface/text/border triptych per intent per mode, as the no-JavaScript floor. From `generated/brands/delta/booking/css/tokens.light.gen.css`:
+Alongside the live primitives, the pipeline bakes a resolved surface/text/border triptych per intent per mode, as the no-JavaScript floor. The shape of `generated/brands/<brand>/<sub-brand>/css/tokens.light.gen.css`:
 
 ```css
 :root {
@@ -162,7 +162,7 @@ Alongside the live primitives, the pipeline bakes a resolved surface/text/border
 }
 ```
 
-Selectors are `[data-brand="delta-skymiles"]` for brand scoping and `[data-mode~="brand"]` for intent selection on an element carrying `data-ucs`. Substrate emits no theme attribute and no per-color variable family of its own — the `--ucs-*` primitives above are the whole vocabulary.
+Selectors are `[data-brand="aurora-rewards"]` for brand scoping and `[data-mode~="brand"]` for intent selection on an element carrying `data-ucs`. Substrate emits no theme attribute and no per-color variable family of its own — the `--ucs-*` primitives above are the whole vocabulary.
 
 <Tip>
   Because lightness is solved rather than authored, adding a mode or shifting the scheme slider requires no new color declarations. If a color reads wrong in dark mode, the fix is almost always the intent's chroma — or a `scheme-end` — rather than a per-mode override.

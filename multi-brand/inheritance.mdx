@@ -9,20 +9,20 @@ A brand family exists so that shared decisions live in exactly one file. The fam
 ## The two layers
 
 ```
-src/brands/delta/config.global.yaml      →  parent (shared foundation)
-src/brands/delta/skymiles/config.yaml    →  child (deltas only)
+src/brands/aurora/config.global.yaml     →  parent (shared foundation)
+src/brands/aurora/rewards/config.yaml    →  child (deltas only)
 ```
 
-Later layers win, per leaf. The merged result is stamped with the family slug `{parent}-{sub}` — `delta-skymiles` — which is what appears in generated CSS as `[data-brand="delta-skymiles"]`.
+Later layers win, per leaf. The merged result is stamped with the family slug `{parent}-{sub}` — `aurora-rewards` — which is what appears in generated CSS as `[data-brand="aurora-rewards"]`.
 
 ## Partial objects merge
 
 This is the central rule, and the one most likely to surprise you if you have used systems where an override replaces the whole object. **An object in the child merges recursively into the object in the parent.** It does not replace it.
 
-The shipped SkyMiles config is the canonical demonstration. Its parent declares the brand intent in full:
+The fictional Aurora Airways family demonstrates it. The parent declares the brand intent in full:
 
 ```yaml
-# src/brands/delta/config.global.yaml
+# src/brands/aurora/config.global.yaml
 intents:
   brand:
     hue: 15
@@ -32,26 +32,26 @@ intents:
 And the child overrides one field of it:
 
 ```yaml
-# src/brands/delta/skymiles/config.yaml
-name: Delta Air Lines - SkyMiles
+# src/brands/aurora/rewards/config.yaml
+name: Aurora Airways - Rewards
 
 intents:
   brand:
     chroma: 0.220        # hue: 15 inherited from the parent
-  medallion-gold:
+  tier-gold:
     hue: 51
     chroma: 0.116
-  skymiles-navy:
+  aurora-navy:
     hue: 216
     chroma: 0.141
 
 typography:
-  heading-family: "'Whitney Condensed', Whitney, Verdana, system-ui, sans-serif"
+  heading-family: "'Aurora Display', Verdana, system-ui, sans-serif"
 ```
 
-The merged `intents.brand` is `{ hue: 15, chroma: 0.220 }`. SkyMiles never restates the hue. Likewise, its `typography` block overrides only `heading-family` — `body-family`, `base-font-size`, `scale-ratio`, `fluid`, and `density` all come from the parent untouched, and `medallion-gold` is simply added to the inherited intent roster.
+The merged `intents.brand` is `{ hue: 15, chroma: 0.220 }`. The Rewards sub-brand never restates the hue. Likewise, its `typography` block overrides only `heading-family` — `body-family`, `base-font-size`, `scale-ratio`, `fluid`, and `density` all come from the parent untouched, and `tier-gold` is simply added to the inherited intent roster.
 
-Delta Cargo shows the same merge at three different depths at once. It overrides `intents.brand` entirely (both fields), `intents.neutral.chroma` alone, `typography.scale-ratio` alone, `motion.duration-base` alone (keeping the family's `linear` easing), and inside `presets` it adjusts individual mode levels' `scheme` values while leaving each level's `contrast-factor` inherited.
+A sibling sub-brand like Aurora Cargo can show the same merge at three different depths at once: overriding `intents.brand` entirely (both fields), `intents.neutral.chroma` alone, `typography.scale-ratio` alone, `motion.duration-base` alone (keeping the family's `linear` easing), and inside `presets` adjusting individual mode levels' `scheme` values while leaving each level's `contrast-factor` inherited.
 
 ## The full merge table
 

@@ -119,18 +119,18 @@ Elements opt into the resulting cascade with `data-ucs`, and pick an intent role
 Substrate bakes a static snapshot into each brand's CSS so a server-rendered page paints accessibly before hydration. That snapshot is a **2×2 matrix** — light/dark × normal/more contrast — emitted on `[data-brand="<slug>"]` and gated by media queries:
 
 ```css
-[data-brand="magic-patterns"] { /* light, contrastFactor 1.0 */ }
+[data-brand="acme"] { /* light, contrastFactor 1.0 */ }
 
 @media (prefers-color-scheme: dark) {
-  [data-brand="magic-patterns"] { /* the dark preset */ }
+  [data-brand="acme"] { /* the dark preset */ }
 }
 
 @media (prefers-contrast: more) {
-  [data-brand="magic-patterns"] { /* the highContrast preset */ }
+  [data-brand="acme"] { /* the highContrast preset */ }
 }
 
 @media (prefers-color-scheme: dark) and (prefers-contrast: more) {
-  [data-brand="magic-patterns"] { /* the darkHighContrast preset */ }
+  [data-brand="acme"] { /* the darkHighContrast preset */ }
 }
 ```
 

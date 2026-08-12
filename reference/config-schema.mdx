@@ -1,25 +1,28 @@
 ---
 title: "Brand Config Schema Reference"
 sidebarTitle: "Config Schema"
-description: "The full YAML brand config schema: intents, elevation, typography, shape, motion, space, flexibility, and presets — with every example copied from a shipped brand."
+description: "The full YAML brand config schema: intents, elevation, typography, shape, motion, space, flexibility, and presets — illustrated with an example brand config."
 ---
 
 import Presets from '/snippets/generated/presets.mdx';
 import PreferenceDefaults from '/snippets/generated/preference-defaults.mdx';
+import DemoBrandsNote from '/snippets/demo-brands-note.mdx';
 
 Brand configuration is **YAML**, discovered by directory convention — there is no `substrate.config.json` and no registration file:
 
 | File | Role |
 |---|---|
-| `src/brands/<name>/config.yaml` | A flat, standalone brand (e.g. `magic-patterns`). |
-| `src/brands/<family>/config.global.yaml` | The shared base of a brand family (e.g. `delta`, `stripe`). |
+| `src/brands/<name>/config.yaml` | A flat, standalone brand (e.g. `acme`). |
+| `src/brands/<family>/config.global.yaml` | The shared base of a brand family (e.g. `aurora`). |
 | `src/brands/<family>/<sub>/config.yaml` | A sub-brand's **deltas** over the family base. |
 
 A separate `substrate.config.yaml` exists in client projects, but it is the org-wide *system overlay* scaffolded by `substrate init` — not a brand config. Keys are authored **kebab-case** and normalized to **camelCase** at load (`heading-family` → `headingFamily`); child keys of named-resource maps (`intents`, `gradients`, `materials`, `ramps`) keep their spelling. Inheritance is a recursive deep merge — see [Inheritance](/multi-brand/inheritance).
 
+<DemoBrandsNote />
+
 ## Complete example
 
-Trimmed from the shipped `src/brands/stripe/config.global.yaml` — every key and value below is real:
+An example brand config (fictional brand), trimmed — `src/brands/acme/config.global.yaml`:
 
 ```yaml
 intents:
@@ -32,7 +35,7 @@ intents:
   danger:
     hue: 11
     chroma: 0.228
-  stripe-cyan:          # custom intents are first-class
+  acme-cyan:            # custom intents are first-class
     hue: 228
     chroma: 0.147
 
@@ -42,8 +45,8 @@ elevation:
   sunken-step: 0.02
 
 typography:
-  heading-family: "'Sohne', 'Inter', system-ui, sans-serif"
-  body-family: "'Sohne', 'Inter', system-ui, sans-serif"
+  heading-family: "'Acme Sans', 'Inter', system-ui, sans-serif"
+  body-family: "'Acme Sans', 'Inter', system-ui, sans-serif"
   base-font-size: 1     # rem
   scale-ratio: 1.25
   fluid:
@@ -91,7 +94,7 @@ presets:
 
 ### `name` and slug
 
-`name` is the display name (`name: Delta Air Lines - SkyMiles`). The **slug is not authored** — it is derived from the directory name by the loader (`delta/skymiles` → `delta-skymiles`) and becomes the runtime's `data-brand` value.
+`name` is the display name (`name: Aurora Airways - Rewards`). The **slug is not authored** — it is derived from the directory name by the loader (`aurora/rewards` → `aurora-rewards`) and becomes the runtime's `data-brand` value.
 
 ### `intents` — required
 
@@ -105,7 +108,7 @@ An intent's color may vary across the scheme axis with a **scheme track**: `sche
 
 ### `typography` — required
 
-`heading-family`, `body-family`, optional `mono-family`; `base-font-size` (**rem**, not px); `scale-ratio` (the modular ratio — there is no engine default; Stripe 1.25, Delta 1.2); optional `fluid` (`rate`, `floor`, `ceiling`, `quantum`) and `density` coefficients (`font-size-k`, `font-weight-k`). See [Type Tokens](/reference/type-tokens) for how these compose.
+`heading-family`, `body-family`, optional `mono-family`; `base-font-size` (**rem**, not px); `scale-ratio` (the modular ratio — there is no engine default; the demo brands range from 1.2 to 1.25); optional `fluid` (`rate`, `floor`, `ceiling`, `quantum`) and `density` coefficients (`font-size-k`, `font-weight-k`). See [Type Tokens](/reference/type-tokens) for how these compose.
 
 ### `shape`, `motion`, `space` — required
 
@@ -119,13 +122,13 @@ The brand's policy for how far users may push each preference axis: `scheme` (bo
 
 ### `presets` — optional
 
-Named positions on the preference continuum: `mode`, `density`, and `contrast` are each an **open map** of brand-named levels. Mode levels carry `scheme` and `contrast-factor` — note shipped brands choose *positions*, not endpoints (Delta's light is `scheme: 0.02`; Stripe's dark is `0.74`, a deep navy rather than black). The engine also ships brand-independent presets:
+Named positions on the preference continuum: `mode`, `density`, and `contrast` are each an **open map** of brand-named levels. Mode levels carry `scheme` and `contrast-factor` — note brands choose *positions*, not endpoints (a light level may sit at `scheme: 0.02`; a dark level at `0.74`, a deep navy rather than black). The engine also ships brand-independent presets:
 
 <Presets />
 
 ### Optional sections
 
-- `ramps` / `color.rampOutputs` — opt-in numbered ramp recipes (the only place a `--color-*` style output exists, e.g. DraftKings' static ramp files).
+- `ramps` / `color.rampOutputs` — opt-in numbered ramp recipes (the only place a `--color-*` style output exists — a brand that opts in gets static ramp files).
 - `gradients` — named gradient recipes with intent-referencing stops (the one place lightness is authored).
 - `materials` — material definitions; `effects` — `blur-unit`; `system` — system-config overrides.
 

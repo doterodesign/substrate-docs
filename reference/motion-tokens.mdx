@@ -14,9 +14,9 @@ Substrate has **no named duration tokens** — no `fast`/`normal`/`slow` steps a
 
 | Variable | Source | Description |
 |---|---|---|
-| `--duration-base` | `motion.duration-base` | The brand's base duration in ms. Shipped values differ widely: Stripe 200, Delta 75. |
+| `--duration-base` | `motion.duration-base` | The brand's base duration in ms. Authored values differ widely across the bundled demo brands — from 75 to 200. |
 | `--motion-factor` | runtime preference | The user's continuous motion preference, 0 (instant) → 1 (full brand duration). **Defaults to 0.75**, and the brand bounds it via `flexibility.motion`. |
-| `--easing` | `motion.easing` | The brand's single authored easing string — Stripe ships `cubic-bezier(0.25, 0.1, 0.25, 1)`, Delta ships `linear`. |
+| `--easing` | `motion.easing` | The brand's single authored easing string — one brand may ship `cubic-bezier(0.25, 0.1, 0.25, 1)` where another ships `linear`. |
 
 Components don't pick from a duration menu; their style descriptors carry a *duration multiple*, so a component's transition is `duration-base × motionFactor × multiplier`. In generated CSS this surfaces as `--surface-transition-duration`, `--surface-transition-delay`, and `--surface-transition-timing`.
 

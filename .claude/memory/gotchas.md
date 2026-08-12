@@ -1,5 +1,20 @@
 # Gotchas
 
+## Publishing surface (legal)
+- Mintlify serves EVERY .md/.mdx in the repo as a hidden page, even when it
+  is not in docs.json nav (verified: unlinked files return 200 by URL).
+  Never put internal reports/notes in served paths. Dot-directories are NOT
+  served (verified 404) → internal reports go in `.claude/reports/`, which
+  overrides the global docs/agents/ convention for this repo.
+- No real company brand names in served pages, the manifest, or memory
+  (user directive, 2026-08-12): the engine's bundled demo brands are named
+  after real companies but are NOT clients. See substrate-engine.md "LEGAL
+  POLICY" and decisions.md for the fictional cast and disclaimer snippet.
+  Exception: historical audit reports under .claude/reports/ retain engine
+  file-path citations (unserved). Git HISTORY still contains the old
+  brand-named pages — full erasure needs a history rewrite or a private
+  repo; surfaced to the user 2026-08-12.
+
 ## Fabrications that must never reappear (audit 2026-08-12; CI gate enforces)
 - `substrate.config.json`, `substrate build`, `substrate audit`, `data-theme`,
   `--color-*` semantic namespace, `--space-1..16`, `--type-size-*`,

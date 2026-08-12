@@ -14,7 +14,7 @@ The root of the system is one expression, from `generated/global/css/tokens.gen.
 --effective-ratio: calc(1 + (var(--scale-ratio) - 1) * var(--type-scale-factor));
 ```
 
-- `--scale-ratio` is the brand's modular ratio (`typography.scale-ratio`; Stripe ships 1.25, Delta 1.2).
+- `--scale-ratio` is the brand's modular ratio (`typography.scale-ratio`; the demo brands ship values from 1.2 to 1.25).
 - `--type-scale-factor` is the user's continuous type-scale preference (0.9 → 1.4, default 1).
 
 Each surface then computes its size — this is real generated component CSS:

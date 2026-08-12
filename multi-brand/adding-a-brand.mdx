@@ -16,17 +16,17 @@ Two paths follow, depending on whether you are adding a **sub-brand** to an exis
     Inside the family directory, next to `config.global.yaml` and the existing sub-brands.
 
     ```bash
-    mkdir -p src/brands/delta/vacations
+    mkdir -p src/brands/aurora/vacations
     ```
 
-    The directory name becomes the child slug, and the merged brand slug will be `delta-vacations`.
+    The directory name becomes the child slug, and the merged brand slug will be `aurora-vacations`.
   </Step>
 
   <Step title="Write only the deltas">
-    Create `src/brands/delta/vacations/config.yaml` containing nothing but what differs from the family foundation. Everything else — intents, elevation, shape, space, flexibility, presets — is inherited.
+    Create `src/brands/aurora/vacations/config.yaml` containing nothing but what differs from the family foundation. Everything else — intents, elevation, shape, space, flexibility, presets — is inherited.
 
     ```yaml
-    name: Delta Air Lines - Vacations
+    name: Aurora Airways - Vacations
 
     intents:
       brand:
@@ -72,7 +72,7 @@ A brand with no sub-brands is a single directory holding a single `config.yaml` 
   </Step>
 
   <Step title="Write a complete config">
-    Create `src/brands/nova/config.yaml`. This shape follows the shipped Magic Patterns config, the reference example of a flat brand.
+    Create `src/brands/nova/config.yaml`. This shape follows the flat-brand pattern used by the engine's bundled demo brands.
 
     ```yaml
     name: Nova
@@ -177,13 +177,13 @@ A brand with no sub-brands is a single directory holding a single `config.yaml` 
     └── docs/
     ```
 
-    Every file carries a `.gen.` marker and a `DO NOT EDIT` header. Sub-brands nest one level deeper — `generated/brands/delta/vacations/`.
+    Every file carries a `.gen.` marker and a `DO NOT EDIT` header. Sub-brands nest one level deeper — `generated/brands/aurora/vacations/`.
   </Step>
 
 </Steps>
 
 <Warning>
-  Modes are authored, not automatic. A brand gets exactly the mode levels its `presets.mode` map declares — the five in the example above are a convention the shipped brands share, not a built-in set. Omit `presets.mode` and the brand has no named modes. The same applies to density levels, whose names are entirely brand-chosen; Magic Patterns calls its levels `discovery`, `default`, and `workspace`.
+  Modes are authored, not automatic. A brand gets exactly the mode levels its `presets.mode` map declares — the five in the example above are a convention the bundled demo brands share, not a built-in set. Omit `presets.mode` and the brand has no named modes. The same applies to density levels, whose names are entirely brand-chosen — a brand serving marketing and product surfaces might call its levels `discovery`, `default`, and `workspace`.
 </Warning>
 
 ## What happens at load

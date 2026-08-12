@@ -8,12 +8,12 @@ Typography in Substrate is continuous. There is no set of named size steps to pi
 
 ## The typography block
 
-From the shipped Stripe foundation (`src/brands/stripe/config.global.yaml`):
+An example, from the fictional Acme brand's `config.global.yaml`:
 
 ```yaml
 typography:
-  heading-family: "'Sohne', 'Inter', system-ui, sans-serif"
-  body-family: "'Sohne', 'Inter', system-ui, sans-serif"
+  heading-family: "'Acme Sans', 'Inter', system-ui, sans-serif"
+  body-family: "'Acme Sans', 'Inter', system-ui, sans-serif"
   base-font-size: 1
   scale-ratio: 1.25     # major third — editorial scale
   fluid:
@@ -25,7 +25,7 @@ typography:
 
 <AccordionGroup>
   <Accordion title="heading-family and body-family">
-    Required font stacks, as full CSS font-family strings. They reach the browser as `--font-heading` and `--font-body` on the brand selector, and components resolve through `--surface-font-family`. Delta pairs `"Whitney, Verdana, system-ui, sans-serif"` for both; SkyMiles overrides only the heading stack to `"'Whitney Condensed', Whitney, Verdana, system-ui, sans-serif"`.
+    Required font stacks, as full CSS font-family strings. They reach the browser as `--font-heading` and `--font-body` on the brand selector, and components resolve through `--surface-font-family`. A family can share one stack and let a sub-brand diverge on a single field — the fictional Aurora Airways family might pair `"'Aurora Sans', Verdana, system-ui, sans-serif"` for both, with its Rewards sub-brand overriding only the heading stack to a condensed cut.
   </Accordion>
 
   <Accordion title="mono-family">
@@ -33,11 +33,11 @@ typography:
   </Accordion>
 
   <Accordion title="base-font-size">
-    A number in **rem**, not a pixel string. Every shipped brand uses `1`, which emits `--font-size-base: 1rem`. This is the size of the baseline text role, and every other size is derived from it.
+    A number in **rem**, not a pixel string. Every bundled demo brand uses `1`, which emits `--font-size-base: 1rem`. This is the size of the baseline text role, and every other size is derived from it.
   </Accordion>
 
   <Accordion title="scale-ratio">
-    The modular ratio the scale raises to a power. Stripe and Magic Patterns use `1.25` (major third), Delta uses `1.2` (minor third), and Delta Cargo tightens further to `1.15`. This is the authored ratio — the effective one is computed at runtime.
+    The modular ratio the scale raises to a power. `1.25` (major third) suits an editorial scale, `1.2` (minor third) a denser transactional one, and a data-heavy sub-brand might tighten further to `1.15`. This is the authored ratio — the effective one is computed at runtime.
   </Accordion>
 
   <Accordion title="fluid">

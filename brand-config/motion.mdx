@@ -8,7 +8,7 @@ Motion in Substrate is two authored values and one runtime multiplier. There is 
 
 ## The motion block
 
-Both fields are required. From `src/brands/stripe/config.global.yaml`:
+Both fields are required. An example, from the fictional Acme brand's `config.global.yaml`:
 
 ```yaml
 motion:
@@ -19,26 +19,25 @@ motion:
 - **`duration-base`** — a bare number in milliseconds. This is the brand's full-strength transition duration.
 - **`easing`** — a CSS easing function, as a string. It reaches the browser as `--easing` on the brand selector.
 
-Shipped brands sit far apart on both, which is the point — motion is brand character, not a system default:
+Different brands can sit far apart on both, which is the point — motion is brand character, not a system default. Here is how a fictional airline family, Aurora Airways, might spread its sub-brands:
 
 | Brand | `duration-base` | `easing` |
 |---|---|---|
-| Delta (family) | `75` | `linear` |
-| Delta Cargo | `100` | inherits `linear` |
-| Delta Premium | `250` | `cubic-bezier(0.25, 0.1, 0.25, 1)` |
-| Delta Corporate | `300` | `cubic-bezier(0.25, 0.1, 0.25, 1)` |
-| Stripe | `200` | `cubic-bezier(0.25, 0.1, 0.25, 1)` |
-| Magic Patterns | `200` | `cubic-bezier(0.25, 0.1, 0.25, 1)` |
+| Aurora (family) | `75` | `linear` |
+| Aurora Cargo | `100` | inherits `linear` |
+| Aurora Premium | `250` | `cubic-bezier(0.25, 0.1, 0.25, 1)` |
+| Aurora Corporate | `300` | `cubic-bezier(0.25, 0.1, 0.25, 1)` |
+| Acme | `200` | `cubic-bezier(0.25, 0.1, 0.25, 1)` |
 
-Delta's 75ms linear is a deliberate choice for a transactional booking flow; Delta Corporate quadruples it to 300ms and swaps in an eased curve for a slower, more formal surface. Cargo overrides only `duration-base` and keeps the family's `linear` easing — see [Inheritance](/multi-brand/inheritance) for how partial overrides merge.
+Aurora's 75ms linear is a deliberate choice for a transactional booking flow; Aurora Corporate quadruples it to 300ms and swaps in an eased curve for a slower, more formal surface. Cargo overrides only `duration-base` and keeps the family's `linear` easing — see [Inheritance](/multi-brand/inheritance) for how partial overrides merge.
 
 ## The continuous model
 
-The authored base is emitted per brand, and one global expression scales it. From `generated/brands/delta/skymiles/css/brand.gen.css`:
+The authored base is emitted per brand, and one global expression scales it. The shape of a brand's generated `css/brand.gen.css`:
 
 ```css
 @layer ucs.tokens {
-  [data-brand="delta-skymiles"] {
+  [data-brand="aurora-rewards"] {
     --duration-base: 75ms;
     --easing: linear;
   }

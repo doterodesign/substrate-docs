@@ -1,8 +1,10 @@
 ---
 title: "Multi-Brand Architecture on a Single Substrate Engine"
 sidebarTitle: "Overview"
-description: "Six brand families ship in one Substrate engine. Brands are directories, discovery is a filesystem scan, and every brand inherits the same solver guarantees from its first generation."
+description: "Many brand families can share one Substrate engine. Brands are directories, discovery is a filesystem scan, and every brand inherits the same solver guarantees from its first generation."
 ---
+
+import DemoBrandsNote from '/snippets/demo-brands-note.mdx';
 
 Running many brands from one design system usually decays the same way: parallel token files drift, accessibility rules get enforced inconsistently, and every new brand is a fresh integration. Substrate avoids that by keeping the mathematics in one engine and reducing a brand to a config. The solver, the preference vector, the component descriptors, and the accessibility gate are shared; a brand supplies intent and policy.
 
@@ -14,27 +16,26 @@ What a brand does *not* own is the solving. APCA lightness resolution, the schem
 
 ## Project structure
 
-Brands live in directories under `src/brands/`. There are two shapes, and the directory contents decide which one applies.
+Brands live in directories under `src/brands/`. There are two shapes, and the directory contents decide which one applies. Here is how a workspace with two fictional brands — the Aurora Airways family and the standalone Acme brand — would be laid out:
 
 ```
 src/brands/
-├── delta/                      # brand family
+├── aurora/                     # brand family
 │   ├── config.global.yaml      # shared foundation
 │   ├── booking/config.yaml     # deltas only
 │   ├── cargo/config.yaml
 │   ├── corporate/config.yaml
 │   ├── premium/config.yaml
-│   └── skymiles/config.yaml
-├── stripe/
-│   ├── config.global.yaml
-│   └── marketing/config.yaml
-└── magic-patterns/             # flat brand
+│   └── rewards/config.yaml
+└── acme/                       # flat brand
     └── config.yaml
 ```
 
-A directory containing `config.global.yaml` is a **family**: each subdirectory holding a `config.yaml` becomes its own brand, with the merged slug `{parent}-{sub}` — `delta-skymiles`, `delta-booking`. A directory containing only `config.yaml` is a **flat brand**, and its slug is the directory name.
+A directory containing `config.global.yaml` is a **family**: each subdirectory holding a `config.yaml` becomes its own brand, with the merged slug `{parent}-{sub}` — `aurora-rewards`, `aurora-booking`. A directory containing only `config.yaml` is a **flat brand**, and its slug is the directory name.
 
-Six brand families ship in the engine: Delta, Descript, DraftKings, Google, Stripe, and Magic Patterns.
+The engine bundles several demo brand families in this layout for testing and demonstration.
+
+<DemoBrandsNote />
 
 <Note>
   There is no workspace file, no brand registry, and no registration step. Discovery is a filesystem scan of the brands directory — a brand exists because its directory does. Adding one is covered in [Adding a Brand](/multi-brand/adding-a-brand).
@@ -56,10 +57,10 @@ Narrower runs are available for iteration: `npm run generate:tokens`, `npm run g
 
 ## Per-brand output
 
-Output lands under `generated/brands/<family>/<sub>/`, one subdirectory per target. For `delta-skymiles`:
+Output lands under `generated/brands/<family>/<sub>/`, one subdirectory per target. For the fictional `aurora-rewards`:
 
 ```
-generated/brands/delta/skymiles/
+generated/brands/aurora/rewards/
 ├── css/            # brand.gen.css + tokens.{light,dark,highContrast,darkHighContrast}.gen.css
 ├── swift/          # brand.gen.swift, index.gen.swift, system.<mode>.gen.swift
 ├── compose/        # Kotlin — same per-mode shape as Swift
@@ -74,7 +75,7 @@ Globally shared artifacts — the continuous scalar expressions, text roles, com
 
 ## Why families are worth using
 
-A family exists so that shared decisions live in one file. Updating `src/brands/delta/config.global.yaml` propagates to all five Delta sub-brands on the next generation; adding an intent there gives every sub-brand that intent automatically. A sub-brand's own config stays small — SkyMiles is roughly thirty lines of genuine divergence over a shared foundation — and the validator actively flags any line in it that merely restates what it already inherits.
+A family exists so that shared decisions live in one file. Updating `src/brands/aurora/config.global.yaml` propagates to all five Aurora sub-brands on the next generation; adding an intent there gives every sub-brand that intent automatically. A sub-brand's own config stays small — a well-factored sub-brand is often around thirty lines of genuine divergence over a shared foundation — and the validator actively flags any line in it that merely restates what it already inherits.
 
 <CardGroup cols={2}>
   <Card title="Inheritance" icon="arrow-down-to-bracket" href="/multi-brand/inheritance">
