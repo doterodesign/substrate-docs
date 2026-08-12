@@ -1,10 +1,10 @@
 ---
 title: "Core Concepts Behind Substrate's Token Architecture"
 sidebarTitle: "Core Concepts"
-description: "Understand how Substrate models color intent, contrast solving, and cascading inheritance to generate tokens that adapt to every user context."
+description: "Understand how Substrate models color intent, solves APCA contrast at runtime, and cascades brand configuration to generate tokens that adapt to every user context."
 ---
 
-Substrate's output looks like a familiar token file — CSS variables, Swift constants, Kotlin values — but the architecture that produces it is fundamentally different from a static library. This page explains the ideas that underpin every decision Substrate makes at build time. Understanding these concepts will help you configure your brand intent accurately, debug unexpected output, and extend the system when your needs grow beyond the defaults.
+Substrate's output looks like a familiar token file — CSS variables, Swift values, Kotlin values — but the architecture that produces it is fundamentally different from a static library. Substrate is a **runtime solver**, not a build-time token baker: the generation pipeline emits solver inputs and style descriptors, and a runtime kernel computes final values against the actual surface your content sits on. This page explains the ideas that underpin that design. Understanding them will help you author brand intent accurately, debug unexpected output, and extend the system when your needs grow beyond the defaults.
 
 ---
 
@@ -12,37 +12,54 @@ Substrate's output looks like a familiar token file — CSS variables, Swift con
 
 In a traditional design system, a token stores a fixed value. `color-primary-500` is `#1A7F5A`. That value was decided by a designer, written into a file, and consumed directly by every platform. The file is the source of truth.
 
-In Substrate, a token stores *intent* — a description of what a color, size, or duration should *mean*, not what it should *be*. The source of truth is your `substrate.config` file. Substrate reads that intent and computes the actual token values at build time, taking into account:
+In Substrate, a token stores *intent* — a description of what a color, size, or duration should *mean*, not what it should *be*. The source of truth is your brand's YAML config (`config.yaml`, or `config.global.yaml` for a brand family). The pipeline reads that intent and emits three kinds of artifacts:
 
-- The current mode (`light`, `dark`, `high-contrast`, etc.)
-- The target platform (Web, iOS, Android)
-- The APCA contrast requirement for each semantic role
+- **Solver inputs** — each intent's hue and chroma, with lightness deliberately absent (it stays solver-owned).
+- **Style descriptors** — per-component styling rules expressed as data, interpreted by a runtime kernel on each platform.
+- **Baked per-mode token files** — static snapshots (light, dark, `highContrast`, `darkHighContrast`) for platforms and moments where the runtime hasn't run yet.
 
-This means the same intent produces different values in different contexts — a higher-lightness surface in light mode, a lower-lightness surface in dark mode, a maximum-contrast foreground in high-contrast mode — all from the same single declaration. If your primary hue changes, every computed value updates across every mode and platform the next time you build. Nothing drifts.
+The final values are computed **at runtime** by a kernel — JavaScript on the web, Swift and Kotlin ports on mobile — that solves APCA lightness against the actual surface, driven by a continuous **preference vector** with seven axes: `scheme`, `contrastFactor`, `densityFactor`, `typeScaleFactor`, `motionFactor`, `warmth`, and `cvd`. The same intent produces different values in different contexts — a higher-lightness surface near the light end of the scheme axis, a light-on-dark solved foreground near the dark end, elevated contrast when `contrastFactor` rises — all from the same single declaration. If your brand hue changes, every computed value updates across every mode and platform the next time you regenerate. Nothing drifts.
+
+On the web, the runtime writes the solved primitives as `--ucs-*` custom properties, and any element carrying `data-ucs` (plus a `data-mode` role such as `brand` or `danger`) participates in the cascade.
 
 <Note>
-  This also means you should never edit the generated output files directly. They are build artifacts. Changes belong in `substrate.config`.
+  Never edit the generated output files directly — every one is marked `.gen.` and carries a `DO NOT EDIT` header. They are build artifacts. Changes belong in your brand's YAML config.
 </Note>
 
 ---
 
 ## Color Intent
 
-Colors in Substrate are defined as *intents* rather than hex values. An intent describes a color's role and its perceptual character — its hue and chroma — without fixing its lightness. Lightness is computed per-mode by the contrast solver.
+Colors in Substrate are defined as *intents* rather than hex values. An intent describes a color's perceptual character — its hue and chroma — without fixing its lightness. Lightness is computed by the contrast solver at every point on the scheme axis. Intents live in an open `intents:` map in the brand YAML; only `brand` and `neutral` are required, and a brand may declare any custom intents it needs. From the shipped Stripe config (`src/brands/stripe/config.global.yaml`):
 
-You can optionally supply different hue and chroma values for light and dark contexts, allowing the color to shift subtly as the scheme changes — a common technique for keeping colors perceptually consistent across luminance extremes.
-
-```json
-{
-  "color.neutral": {
-    "intent": "neutral",
-    "light": { "hue": 210, "chroma": 0.02 },
-    "dark":  { "hue": 220, "chroma": 0.04 }
-  }
-}
+```yaml
+intents:
+  brand:
+    hue: 277        # Stripe Indigo
+    chroma: 0.268
+  neutral:
+    hue: 251        # cool-tinted neutrals
+    chroma: 0.012
+  danger:
+    hue: 11
+    chroma: 0.228
+  # Custom intents are first-class — same treatment as the system names
+  stripe-cyan:
+    hue: 228
+    chroma: 0.147
 ```
 
-In this example, the neutral color uses a slightly higher chroma in dark mode. This compensates for the Helmholtz–Kohlrausch effect, where colors appear less saturated on dark backgrounds — keeping the perceptual character of the neutral consistent even though the raw values differ.
+An intent's hue and chroma can also vary *across the scheme axis* instead of being constant. The grammar is a **scheme track**: either the `scheme-end` shorthand (a second hue/chroma for the dark end) or a full `scheme-track` list of stops, each pinned at a continuous position `at` between 0 (light) and 1 (dark). A stop can even sample another intent at the same position via `from-intent`, and interpolation space is selectable with `blend` (`oklch` or `oklab`).
+
+```yaml
+intents:
+  neutral:
+    hue: 210
+    chroma: 0.02
+    scheme-end: { hue: 220, chroma: 0.04 }  # slightly richer chroma at the dark end
+```
+
+Letting chroma rise toward the dark end is a common technique for keeping a color's perceived character consistent across luminance extremes, where colors tend to read as less saturated. Note that scheme tracks are an available capability, but no shipped brand currently uses one — the six shipped brand families all author constant hue/chroma per intent.
 
 ### Why OKLCH?
 
@@ -52,7 +69,7 @@ Substrate uses the **OKLCH** color space for all internal calculations. OKLCH is
 - **C** — Chroma (0–~0.4), the intensity or colorfulness
 - **H** — Hue (0–360°), the color angle
 
-OKLCH is perceptually uniform, meaning equal numeric steps produce equal perceived differences. This is critical for generating color ramps that look evenly stepped to the human eye. Legacy color spaces like HSL produce steps that vary wildly in perceived lightness — a ramp from HSL yellow to HSL blue will have a jarring middle band regardless of how even the numeric spacing is.
+OKLCH is perceptually uniform, meaning equal numeric steps produce equal perceived differences. This is critical for generating color ramps that look evenly stepped to the human eye — and it is what makes the contrast solver possible: the solver can search along the L axis for a target contrast without the hue or chroma drifting underneath it. Legacy color spaces like HSL produce steps that vary wildly in perceived lightness — a ramp from HSL yellow to HSL blue will have a jarring middle band regardless of how even the numeric spacing is.
 
 ---
 
@@ -62,171 +79,190 @@ WCAG 2.x contrast ratios are based on relative luminance and a single formula: `
 
 **APCA** (Advanced Perceptual Contrast Algorithm) replaces this model. APCA calculates a signed lightness contrast value — **Lc** — that accounts for polarity (is the text light-on-dark or dark-on-light?), spatial frequency (font size and weight), and the perceptual characteristics of the human visual system.
 
-Substrate uses APCA at build time to derive foreground token values. The process works like this:
+Substrate runs the APCA solve **at runtime**, per surface. The process works like this:
 
-1. The background token's lightness is determined for the current mode.
-2. The semantic role of the foreground is identified (body text, label, decorative, non-text UI element, etc.).
-3. Substrate looks up the Lc target for that role from your config (defaults follow APCA's recommended targets for each category).
-4. The solver finds the OKLCH lightness value that achieves exactly that Lc against the background.
-5. That lightness is combined with the foreground's declared hue and chroma to produce the final token value.
+1. Each intent's scheme track is evaluated at the current `scheme` position, yielding its hue and chroma.
+2. Two user-compensation transforms run first — `warmth`, then `cvd` — so color is adjusted for the user *before* any contrast math.
+3. The solver takes the actual surface the content sits on (exposed to CSS as `--ctx-surface-l`) and binary-searches the OKLCH lightness that achieves the target Lc against it.
+4. The targets come from a fixed, named policy: **foreground Lc 75, border Lc 50, focus ring Lc 60**, each scaled by the user's continuous `contrastFactor` (bounded per brand by `flexibility.contrast`).
+5. The solved values are written as `--ucs-{intent}-{hue,chroma,fg-l,border-l,surface-l}` primitives; the generated CSS composes final colors from them with `calc()`.
 
 The result is that **you never hand-pick a foreground color**. Every text color and icon color is derived, not authored.
 
-```
-Background: oklch(96% 0.018 160)  →  --color-primary-surface
-Target Lc:  87.4 (body text, light mode)
-Solved:     oklch(18% 0.09 160)   →  --color-primary-on-surface
-```
+Failures are explicit, not silent. When a target can't be met within gamut, the solver reports the shortfall as an `unmetLc` value rather than quietly passing, and the generation pipeline runs a build-failing accessibility gate over the whole brand corpus — output like `Accessibility gate: FAIL (2 failures: 2 apca)` blocks the build until the brand config is fixed.
 
 ---
 
 ## Modes
 
-Every brand config produces five complete token sets — called *modes* — automatically. You don't create separate configs or override files for each mode.
+Substrate does not have modes in the traditional sense of parallel token sets. It has a **continuous preference vector**, and *modes are named presets* — convenience points on that continuum. The presets ship in the engine (`SCHEME_PRESETS`):
+
+```ts
+light:            { scheme: 0,    contrastFactor: 1.0 }
+dark:             { scheme: 1,    contrastFactor: 1.0 }
+dimmed:           { scheme: 0.65, contrastFactor: 0.95 }
+highContrast:     { scheme: 0,    contrastFactor: 1.3 }
+darkHighContrast: { scheme: 1,    contrastFactor: 1.3 }
+```
 
 <Tabs>
   <Tab title="light">
-    The default mode. Surfaces are near-white, with high-lightness backgrounds and dark foregrounds. APCA targets are calibrated for standard ambient lighting and sRGB displays.
+    The light end of the scheme axis (`scheme: 0`). Surfaces are near-white with dark solved foregrounds. Standard contrast (`contrastFactor: 1.0`).
   </Tab>
   <Tab title="dark">
-    Surfaces are near-black. Foregrounds are light. Chroma values may shift subtly (as configured in your color intent) to maintain perceptual consistency. APCA polarity flips — Substrate solves for light-on-dark contrast.
+    The dark end (`scheme: 1`). Surfaces are near-black; foregrounds are light — APCA polarity flips and the solver computes light-on-dark contrast. Scheme-track intents can shift chroma here to preserve perceptual character.
   </Tab>
   <Tab title="dimmed">
-    A reduced-luminance variant of dark mode, designed for OLED displays and nighttime use. Surfaces are darker than in dark mode; peak luminance is capped. Reduces eye strain without sacrificing contrast compliance.
+    A mid-track position (`scheme: 0.65`) — *lighter* than dark, not darker — with slightly relaxed contrast (`contrastFactor: 0.95`). Because it sits between the endpoints, dimmed is sampled continuously by the solver; it is not a recolor of either end.
   </Tab>
-  <Tab title="high-contrast">
-    A light-base mode with significantly elevated Lc targets. Foreground values are pushed toward maximum contrast. Designed for users with low vision who rely on increased contrast rather than inverting the color scheme.
+  <Tab title="highContrast">
+    The light end with `contrastFactor: 1.3`, which multiplies every Lc target (foreground 75 → ~97.5). For users who need elevated contrast without inverting the scheme.
   </Tab>
-  <Tab title="high-contrast-dark">
-    Combines the dark surface palette with high-contrast Lc targets. Serves users who prefer dark interfaces but also require elevated contrast — a common combination for users with certain visual impairments.
+  <Tab title="darkHighContrast">
+    The dark end with the same 1.3× contrast multiplier — for users who prefer dark interfaces *and* need elevated contrast.
   </Tab>
 </Tabs>
 
-Substrate emits all five modes in a single build. For Web output, each mode is scoped to a `[data-substrate-mode]` attribute selector, with `@media (prefers-color-scheme: dark)` fallbacks for dark and dimmed modes.
+Because these are presets over a continuum, users are not limited to them: `scheme` can sit anywhere in 0–1, and the other axes — `densityFactor`, `typeScaleFactor`, `motionFactor`, `warmth`, and `cvd` (type plus continuous severity) — adjust independently at runtime. On the web the runtime applies all of this live. For native platforms the pipeline additionally bakes static per-mode token files for `light`, `dark`, `highContrast`, and `darkHighContrast`; `dimmed`, being mid-track, has no baked file and requires the kernel's continuous sampling.
 
 ---
 
 ## Cascading Inheritance
 
-Substrate is designed to support multi-brand systems where many brands share the same mathematical model. Rather than duplicating configuration, each brand in your system supplies only the values that make it unique — its color intents, scale parameters, and any semantic overrides — and inherits all accessibility behavior from the base model.
+Substrate is designed to support multi-brand systems where many brands share the same mathematical model. Inheritance is structural: a brand family directory contains a shared `config.global.yaml`, and each sub-brand directory contains a `config.yaml` holding **only its deltas**. From the shipped Delta family (`src/brands/delta/skymiles/config.yaml`):
 
-```json
-{
-  "extends": "substrate/base",
-  "brand": "sub-brand-a",
-  "color": {
-    "primary": { "hue": 42, "chroma": 0.21 }
-  }
-}
+```yaml
+name: Delta Air Lines - SkyMiles
+
+intents:
+  brand:
+    chroma: 0.220        # hue: 15 is inherited from ../config.global.yaml
+  medallion-gold:
+    hue: 51
+    chroma: 0.116
+
+typography:
+  heading-family: "'Whitney Condensed', Whitney, Verdana, system-ui, sans-serif"
 ```
 
-In this example, `sub-brand-a` inherits all spacing, type, motion, contrast targets, and semantic role definitions from the base config. It only overrides the primary color hue and chroma. When you run `substrate build`, this brand receives a fully generated token set — all modes, all platforms — with its own primary color and the same accessibility guarantees as every other brand in the system.
+The two layers are combined by a **recursive deep merge** — partial objects merge field-by-field, so SkyMiles can override just `intents.brand.chroma` and inherit the hue. Setting a key to `null` deletes it from the merged result; arrays replace wholesale. Deltas-only authoring isn't just a convention: the validator flags any sub-brand value that merely repeats its parent's. The merged brand gets the slug `delta-skymiles` (parent–child), which is what appears in the runtime's `data-brand` attribute.
 
 This cascading model means:
 
-- Updating a contrast target in the base config propagates to every brand on the next build.
-- Adding a new semantic role in the base config gives every brand that role automatically.
-- A new brand requires only a handful of lines to bootstrap a full, accessible token set.
+- Updating the family's shared config propagates to every sub-brand on the next generation.
+- Adding an intent in `config.global.yaml` gives every sub-brand that intent automatically.
+- A new sub-brand requires only a handful of lines to bootstrap a full, accessible token set — with the same solver guarantees as every other brand in the system.
 
 ---
 
 ## Platform Output
 
-Substrate treats Web, iOS, and Android as first-class build targets. Each receives the same logical token set expressed in the native idiom of that platform.
+Substrate emits the same brand model in each platform's native idiom, under `generated/` (globally shared artifacts in `generated/global/`, per-brand artifacts in `generated/brands/<brand>/<sub-brand>/`). The token family covers CSS, DTCG JSON, Swift, Kotlin/Compose, and React Native, with further targets (xcassets, JSON conformance vectors) alongside.
 
 <Tabs>
   <Tab title="Web (CSS)">
-    ```css
-    /* substrate-tokens/web/substrate-tokens.css */
+    Two layers. The generated cascade composes everything from continuous scalars — this is real output from `generated/global/css/tokens.gen.css` and the badge component:
 
-    [data-substrate-mode="light"] {
-      --color-primary-surface: oklch(96% 0.018 160);
-      --color-primary-on-surface: oklch(18% 0.09 160);
-      --space-3: 6.25px;
-      --type-size-2: 16px;
-      --motion-duration-fast: 100ms;
+    ```css
+    :root {
+      --effective-ratio: calc(1 + (var(--scale-ratio) - 1) * var(--type-scale-factor));
+      --radius: calc(var(--radius-base) * var(--density));
+      --duration: calc(var(--duration-base) * var(--motion-factor));
     }
 
-    [data-substrate-mode="dark"] {
-      --color-primary-surface: oklch(14% 0.035 160);
-      --color-primary-on-surface: oklch(91% 0.045 160);
-      --space-3: 6.25px;
-      --type-size-2: 16px;
-      --motion-duration-fast: 100ms;
+    .sub-badge[data-ucs] {
+      /* 8px at default density=1, scale=1, space-unit=4 */
+      --surface-padding-x: calc(var(--density) * var(--scale) * var(--space-unit) * 2);
+    }
+    ```
+
+    And per-mode baked token files provide the no-JS floor — from `generated/brands/delta/booking/css/tokens.light.gen.css`:
+
+    ```css
+    :root {
+      --ucs-surface-surface: #eff7f9;
+      --ucs-surface-text: #080c0d;
+      --ucs-surface-border: #6d7374;
+      --ucs-brand-surface: #bf0039;
+      --ucs-brand-text: #c7003f;
+      --ucs-brand-border: #ff5674;
     }
     ```
   </Tab>
   <Tab title="iOS (Swift)">
+    Per-mode resolved token sets — separate files per mode (`system.light.gen.swift`, `system.dark.gen.swift`, …), each intent a surface/text/border triple in Display P3. From `generated/brands/magic-patterns/swift/system.light.gen.swift`:
+
     ```swift
-    // substrate-tokens/ios/SubstrateTokens.swift
-    // Generated by Substrate — do not edit directly
+    import SwiftUI
 
-    import UIKit
+    public struct SubstrateSystemTokenSet {
+        public let surface: Color
+        public let text: Color
+        public let border: Color
+    }
 
-    public enum SubstrateTokens {
-      public enum Color {
-        public enum Primary {
-          public static let surface = UIColor { traits in
-            traits.userInterfaceStyle == .dark
-              ? UIColor(red: 0.06, green: 0.16, blue: 0.12, alpha: 1)
-              : UIColor(red: 0.93, green: 0.97, blue: 0.95, alpha: 1)
-          }
-          public static let onSurface = UIColor { traits in
-            traits.userInterfaceStyle == .dark
-              ? UIColor(red: 0.82, green: 0.95, blue: 0.89, alpha: 1)
-              : UIColor(red: 0.06, green: 0.18, blue: 0.13, alpha: 1)
-          }
-        }
-      }
-      public enum Space {
-        public static let s3: CGFloat = 6.25
-        public static let s5: CGFloat = 9.766
-      }
+    public enum SubstrateSystemTokens {
+        public static let surface = SubstrateSystemTokenSet(
+            surface: Color(.displayP3, red: 0.9588, green: 0.9594, blue: 0.9728, opacity: 1.0000),
+            text: Color(.displayP3, red: 0.0424, green: 0.0427, blue: 0.0511, opacity: 1.0000),
+            border: Color(.displayP3, red: 0.4431, green: 0.4436, blue: 0.4553, opacity: 1.0000)
+        )
+    }
+    ```
+
+    Component styling ships as **descriptors** interpreted by the `SubstrateKernel` Swift package (a full port of the APCA/OKLCH/CVD math):
+
+    ```swift
+    import SubstrateKernel
+
+    public enum BadgeComponent {
+        public static let style = ComponentStyleDescriptor(
+            component: "badge",
+            nodes: [
+                StyleNode(scope: .component, properties: [
+                    StyleProperty(name: "padding-x", value: .spatial(2)),
+                    StyleProperty(name: "shape", value: .radiusCapsule),
+                ]),
+            ]
+        )
     }
     ```
   </Tab>
   <Tab title="Android (Kotlin)">
+    The Compose output mirrors Swift: per-mode files (`system.light.gen.kt`, `system.dark.gen.kt`, …) each declaring the same top-level object, so an app includes exactly one per build variant. From `generated/brands/magic-patterns/compose/system.light.gen.kt`:
+
     ```kotlin
-    // substrate-tokens/android/SubstrateTokens.kt
-    // Generated by Substrate — do not edit directly
-
-    package com.example.substrate.tokens
-
     import androidx.compose.ui.graphics.Color
-    import androidx.compose.ui.unit.dp
-    import androidx.compose.ui.unit.sp
+    import androidx.compose.ui.graphics.colorspace.ColorSpaces
 
-    object SubstrateTokens {
-      object ColorLight {
-        val PrimarySurface   = Color(0xFFEDF8F3)
-        val PrimaryOnSurface = Color(0xFF0F2E22)
-      }
-      object ColorDark {
-        val PrimarySurface   = Color(0xFF0F2620)
-        val PrimaryOnSurface = Color(0xFFD2F1E4)
-      }
-      object Space {
-        val S3 = 6.25.dp
-        val S5 = 9.766.dp
-      }
-      object TypeSize {
-        val Size2 = 16.sp
-        val Size3 = 20.sp
-      }
+    data class SubstrateSystemTokenSet(
+        val surface: Color,
+        val text: Color,
+        val border: Color,
+    )
+
+    object SubstrateSystemTokens {
+        val surface = SubstrateSystemTokenSet(
+            surface = Color(red = 0.9588f, green = 0.9594f, blue = 0.9728f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+            text = Color(red = 0.0424f, green = 0.0427f, blue = 0.0511f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+            border = Color(red = 0.4431f, green = 0.4436f, blue = 0.4553f, alpha = 1f, colorSpace = ColorSpaces.DisplayP3),
+        )
     }
     ```
+
+    The kernel port lives in the `substrate.kernel` package and interprets the same component descriptors, and a generated Material `ColorScheme` file is the Compose theming integration point.
   </Tab>
 </Tabs>
 
-Spacing and type size tokens use the same computed scale values across all platforms. The only difference is the unit format — `px` for Web, `CGFloat`/`.dp`/`.sp` for native platforms.
+There are no numbered spacing or type-size ladders on any platform. Spacing is one `--space-unit` scaled by continuous `--density` and `--scale`; type sizes are powers of a computed ratio (`--effective-ratio`); motion is one `--duration` scaled by `--motion-factor`. The continuous model *is* the cross-platform contract — the kernels on iOS and Android compute with the same factors the web runtime writes to CSS.
 
 ---
 
 <CardGroup cols={2}>
   <Card title="Brand Config Overview" icon="sliders" href="/brand-config/overview">
-    See every available field in `substrate.config`, including semantic color roles, CVD accommodation options, and per-mode contrast targets.
+    See the full YAML schema — the open intents map, elevation, typography, shape, motion, space, flexibility bounds, and mode/density presets.
   </Card>
   <Card title="Modes Overview" icon="circle-half-stroke" href="/modes/overview">
-    Learn how Substrate generates and scopes each mode, and how to configure per-mode contrast targets and lightness ranges.
+    Learn how the preference vector drives modes as presets, and how the runtime, SSR floor, and baked artifacts fit together.
   </Card>
 </CardGroup>
