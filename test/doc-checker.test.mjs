@@ -175,3 +175,41 @@ test('a template mention like `--ucs-{intent}-hue` is not treated as a variable'
   });
   assert.deepEqual(violations, []);
 });
+
+test('flags a fabricated config key in a YAML block; open-map children are exempt', () => {
+  const withConfig = {
+    ...manifest,
+    categories: {
+      ...manifest.categories,
+      configKeys: {
+        exact: ['name', 'intents', 'typography', 'scale-ratio', 'hue', 'chroma', 'space', 'unit'],
+        openMaps: ['intents'],
+      },
+    },
+  };
+  const violations = checkDocs({
+    manifest: withConfig,
+    pages: page([
+      '```yaml',
+      'name: Acme',
+      'space-unit: 4px',            // fabricated top-level key -> flagged
+      'intents:',
+      '  my-custom-intent:',        // child of open map -> exempt
+      '    hue: 42',
+      '    chroma: 0.2',
+      'typography:',
+      '  scale-ratio: 1.25',
+      '  type-size-unit: 16px',     // fabricated nested key -> flagged
+      'space:',
+      '  unit: 4',
+      '```',
+    ].join('\n')),
+  });
+  assert.deepEqual(
+    violations.map((v) => [v.kind, v.identifier]),
+    [
+      ['config-key', 'space-unit'],
+      ['config-key', 'type-size-unit'],
+    ],
+  );
+});

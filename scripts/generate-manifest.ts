@@ -114,6 +114,17 @@ const { loadAllBrandsWithPaths } = await engineImport('src/kernel/system/brand-l
 for (const entry of loadAllBrandsWithPaths(join(ENGINE, 'src/brands'))) {
   collectKeys(entry.brand ?? entry, configKeySet);
 }
+// Declaration scan of the config-shape types module: catches schema-valid keys
+// no shipped brand exercises (scheme-end, scheme-track, from-intent, blend).
+const typesFiles = readAll(['src/kernel/system/types.ts']);
+for (const key of matches(typesFiles, /^\s+(?:readonly\s+)?['"]?([A-Za-z][A-Za-z0-9_-]*)['"]?\?*:\s/gm)) {
+  configKeySet.add(key);
+}
+// Docs may spell any camelCase key in its authored kebab-case form.
+for (const key of [...configKeySet]) {
+  const kebab = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  configKeySet.add(kebab);
+}
 
 const aliasFiles = readAll(['src/aliases.ts']);
 const importAliases = matches(aliasFiles, /(@substrate\/[a-z]+(?:\/\*)?)/g);
