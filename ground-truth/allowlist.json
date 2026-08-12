@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "identifier": "--space-1",
+    "reason": "Named only to state it does not exist (spacing-tokens denial of the fabricated ladder)"
+  },
+  {
+    "identifier": "--space-16",
+    "reason": "Named only to state it does not exist (spacing-tokens denial of the fabricated ladder)"
+  },
+  {
+    "identifier": "--font-sans",
+    "reason": "Named only to state it does not exist (type-tokens denial of the fabricated font token)"
+  }
+]

@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "check:docs": "node scripts/check-docs.mjs"
+    "check:docs": "node scripts/check-docs.mjs",
+    "check:partials": "node scripts/generate-reference-partials.mjs --check",
+    "generate:partials": "node scripts/generate-reference-partials.mjs"
   }
 }

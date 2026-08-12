@@ -1,44 +1,63 @@
 ---
-title: "Spacing Token Reference: Space Scale CSS Variables"
+title: "Spacing Token Reference"
 sidebarTitle: "Spacing Tokens"
-description: "Complete reference for Substrate's spacing tokens — all --space-* variables, density multipliers, and how space-unit drives the whole scale."
+description: "Substrate's continuous spacing model: one brand space unit scaled by runtime density and scale factors — no numbered spacing ladder."
 ---
 
-All spacing tokens are integer multiples of `space-unit`, the base unit you define in your brand config. At `density: default` the multiplier is applied directly — `--space-4` is exactly `4 × space-unit`. When you change `density` to `compact` or `comfortable`, every token in the scale shifts uniformly so your entire layout tightens or loosens without touching a single component. The table below shows resolved values for the two most common base units: 4px and 5px.
+import ScalarTokens from '/snippets/generated/scalar-tokens.mdx';
 
-## Spacing Scale
+Substrate emits exactly **one** spacing token: `--space-unit`, the brand's spatial unit in px (`space.unit`; every shipped brand uses 4). There is no `--space-1` … `--space-16` ladder. All spacing is computed at the use site from three independent scalars.
 
-| Token | Multiplier | Value (4px unit) | Value (5px unit) |
-|---|---|---|---|
-| `--space-0` | 0 | 0 | 0 |
-| `--space-1` | 1× | 4px | 5px |
-| `--space-2` | 2× | 8px | 10px |
-| `--space-3` | 3× | 12px | 15px |
-| `--space-4` | 4× | 16px | 20px |
-| `--space-6` | 6× | 24px | 30px |
-| `--space-8` | 8× | 32px | 40px |
-| `--space-10` | 10× | 40px | 50px |
-| `--space-12` | 12× | 48px | 60px |
-| `--space-16` | 16× | 64px | 80px |
-| `--space-20` | 20× | 80px | 100px |
-| `--space-24` | 24× | 96px | 120px |
+## The composition
 
-<Note>
-Steps 5, 7, 9, 11, and 13–15 are intentionally omitted from the scale. Removing these steps reduces the number of near-identical spacing values, which prevents token choice paralysis and keeps layout decisions consistent across your team.
-</Note>
+Every spatial value in generated component CSS has this shape — real output from the badge component:
 
-## Density Multipliers
+```css
+.sub-badge[data-ucs] {
+  /* 8px at default density=1, scale=1, space-unit=4 */
+  --surface-padding-x: calc(var(--density) * var(--scale) * var(--space-unit) * 2);
+  /* 2px at default density=1, scale=1, space-unit=4 */
+  --surface-padding-y: calc(var(--density) * var(--scale) * var(--space-unit) * 0.5);
+  /* 6px at default density=1, scale=1, space-unit=4 */
+  --surface-gap-x: calc(var(--density) * var(--scale) * var(--space-unit) * 1.5);
+}
+```
 
-The `density` setting in your brand config applies a global multiplier to `space-unit` before all other calculations. The three levels give you a single-lever control over information density across your entire product.
+A component authors a spatial *multiplier* (here 2, 0.5, 1.5 — fractions welcome); the engine composes it with:
 
-| Density | Effective multiplier |
-|---|---|
-| `compact` | 0.75× space-unit |
-| `default` | 1× space-unit |
-| `comfortable` | 1.25× space-unit |
+- `--space-unit` — the brand constant (`space.unit`, px).
+- `--density` — the user's continuous density preference (`densityFactor`, 0.8 → 1.3), written by the runtime. **This is the lever for scoped density overrides**, not `--space-unit`.
+- `--scale` — a continuous size multiplier for scaled contexts.
 
-For example, with a 4px `space-unit` and `density: compact`, `--space-4` resolves to `4 × (4px × 0.75) = 12px` instead of 16px.
+Because density is a runtime variable, changing it re-lays-out the interface instantly — no rebuild.
 
-<Tip>
-Use `density: compact` for data-dense interfaces like tables, dashboards, and admin tools. Use `density: comfortable` for consumer-facing products where reading comfort and touch target size are the priority.
-</Tip>
+## Density presets
+
+Brands name positions on the density continuum under `presets.density`. The names are brand-chosen (an open map). Delta ships:
+
+```yaml
+presets:
+  density:
+    compact:
+      density-factor: 0.85
+    default:
+      density-factor: 1.0
+    comfortable:
+      density-factor: 1.15
+```
+
+Magic Patterns instead names its levels `discovery` / `default` / `workspace` — proof the set is convention, not enum. The brand bounds how far users can push density via `flexibility.density` (`min`/`max`).
+
+## Radius
+
+Corner radius follows the same pattern: `--radius: calc(var(--radius-base) * var(--density))`, with `--radius-base` from `shape.radius-base`.
+
+## All continuous scalars
+
+For reference, the full scalar set (generated from the ground-truth manifest):
+
+<ScalarTokens />
+
+<Card title="Config: Spacing & Density" icon="ruler" href="/brand-config/spacing-density">
+  How to author space.unit and density presets in a brand config.
+</Card>

@@ -1,48 +1,33 @@
 ---
-title: "Motion Token Reference: Duration and Easing CSS Variables"
+title: "Motion Token Reference"
 sidebarTitle: "Motion Tokens"
-description: "Complete reference for Substrate's motion tokens — duration and easing CSS variables derived from motion-unit, with prefers-reduced-motion support."
+description: "Substrate's continuous motion model: one brand base duration scaled by the user's motion factor, one authored easing — no named duration steps."
 ---
 
-Motion tokens are derived from `motion-unit`, the base animation duration in your brand config. Each `--motion-*` duration token is a named multiple of that unit, giving you a consistent vocabulary for communicating the weight and importance of transitions. Easing tokens are fixed cubic-bezier curves selected for common interaction patterns. Together, the duration and easing tokens ensure that your UI moves with coherent timing — fast micro-interactions use short durations and snappy easings, while large layout changes use longer durations and gentler curves.
-
-## Duration Tokens
-
-| Token | Multiplier | Value (100ms unit) | Use |
-|---|---|---|---|
-| `--motion-instant` | 0 | 0ms | State changes that should never animate |
-| `--motion-fast` | 1× | 100ms | Micro-interactions, tooltips |
-| `--motion-normal` | 2× | 200ms | Most UI transitions |
-| `--motion-slow` | 3× | 300ms | Larger element transitions |
-| `--motion-slower` | 5× | 500ms | Page-level transitions |
-
-## Easing Tokens
-
-| Token | Curve | Use |
-|---|---|---|
-| `--ease-standard` | `cubic-bezier(0.4, 0, 0.2, 1)` | General-purpose |
-| `--ease-enter` | `cubic-bezier(0, 0, 0.2, 1)` | Elements entering the screen |
-| `--ease-exit` | `cubic-bezier(0.4, 0, 1, 1)` | Elements leaving the screen |
-| `--ease-spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Playful bounce |
-
-The `--ease-enter` and `--ease-exit` curves are asymmetric by design. Elements enter slowly and decelerate, drawing the eye toward them. Elements exit quickly and accelerate, stepping out of the way without demanding attention.
-
-## Usage Example
-
-Combine a duration token with an easing token in your CSS `transition` shorthand:
+Substrate has **no named duration tokens** — no `fast`/`normal`/`slow` steps and no `--ease-*` set. Motion is one continuous product, from `generated/global/css/tokens.gen.css`:
 
 ```css
-.button {
-  transition: background-color var(--motion-fast) var(--ease-standard),
-              transform var(--motion-fast) var(--ease-spring);
-}
-
-.modal {
-  transition: opacity var(--motion-normal) var(--ease-enter),
-              transform var(--motion-normal) var(--ease-enter);
-}
+--duration: calc(var(--duration-base) * var(--motion-factor));
 ```
 
+## The three motion variables
+
+| Variable | Source | Description |
+|---|---|---|
+| `--duration-base` | `motion.duration-base` | The brand's base duration in ms. Shipped values differ widely: Stripe 200, Delta 75. |
+| `--motion-factor` | runtime preference | The user's continuous motion preference, 0 (instant) → 1 (full brand duration). **Defaults to 0.75**, and the brand bounds it via `flexibility.motion`. |
+| `--easing` | `motion.easing` | The brand's single authored easing string — Stripe ships `cubic-bezier(0.25, 0.1, 0.25, 1)`, Delta ships `linear`. |
+
+Components don't pick from a duration menu; their style descriptors carry a *duration multiple*, so a component's transition is `duration-base × motionFactor × multiplier`. In generated CSS this surfaces as `--surface-transition-duration`, `--surface-transition-delay`, and `--surface-transition-timing`.
+
+## Reduced motion
+
+Reduced motion is handled by the **runtime**, not by a generated media-query block: when `prefers-reduced-motion: reduce` matches, the runtime sets `motionFactor` to 0, which zeroes every resolved duration through the single formula above. Because `motionFactor` is a user preference, motion sensitivity is also adjustable *between* 0 and 1 — it is not a binary switch.
+
 <Note>
-When `prefers-reduced-motion: reduce` is active, all duration tokens except `--motion-instant` resolve to `0ms`. Build your components to handle instant transitions gracefully — never rely on animation timing for layout correctness or to delay content visibility.
+  A brand can constrain how much motion users can dial in with `flexibility.motion` (`min`/`max`) — for example pinning `max` below 1 for a deliberately restrained product.
 </Note>
+
+<Card title="Config: Motion" icon="wand-magic-sparkles" href="/brand-config/motion">
+  How to author duration-base and easing in a brand config.
+</Card>

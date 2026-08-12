@@ -1,55 +1,73 @@
 ---
-title: "Typography Token Reference: Type Scale CSS Variables"
+title: "Typography Token Reference"
 sidebarTitle: "Type Tokens"
-description: "Complete reference for Substrate's generated typography tokens — size scale, font family, line height, and letter spacing variables."
+description: "Substrate's continuous type system: one base size, a computed effective ratio, semantic text roles with fractional exponents — no named size ladder."
 ---
 
-Substrate derives your entire type scale from two config values: `type-size-unit` (the base font size) and `scale-ratio` (the modular scale multiplier). Every `--type-size-*` token is computed by raising the ratio to a positive or negative integer power and multiplying by the base. The result is a mathematically harmonious scale where every step has a consistent visual relationship to its neighbors — no eyeballing required. The examples in the table below assume the defaults: a 16px base and a 1.25 Major Third ratio.
+Substrate has **no named type-size tokens** — no `xs`/`sm`/`md` ladder. Font size is a continuous function: a base size raised to a power of a computed ratio, where the exponent comes from the element's **text role** and the ratio itself responds to the user's `typeScaleFactor` preference at runtime.
 
-## Type Size Tokens
+## The computed scale
 
-| Token | Scale step | Example (ratio 1.25, base 16px) |
-|---|---|---|
-| `--type-size-xs` | base ÷ ratio² | ~10.24px |
-| `--type-size-sm` | base ÷ ratio | ~12.8px |
-| `--type-size-md` | base | 16px |
-| `--type-size-lg` | base × ratio | 20px |
-| `--type-size-xl` | base × ratio² | 25px |
-| `--type-size-2xl` | base × ratio³ | 31.25px |
-| `--type-size-3xl` | base × ratio⁴ | ~39px |
+The root of the system is one expression, from `generated/global/css/tokens.gen.css`:
 
-Change `scale-ratio` in your brand config to shift the scale's expressiveness. A 1.2 ratio produces a compact, disciplined scale; a 1.5 ratio produces an expressive, editorial scale.
+```css
+--effective-ratio: calc(1 + (var(--scale-ratio) - 1) * var(--type-scale-factor));
+```
 
-## Font Family Tokens
+- `--scale-ratio` is the brand's modular ratio (`typography.scale-ratio`; Stripe ships 1.25, Delta 1.2).
+- `--type-scale-factor` is the user's continuous type-scale preference (0.9 → 1.4, default 1).
 
-Substrate emits font-family tokens for the two stacks it manages. Override the values by supplying a `font` object in your brand config.
+Each surface then computes its size — this is real generated component CSS:
 
-| Token | Description |
+```css
+--_computed: round(nearest, calc(var(--font-size-base) * pow(var(--effective-ratio), var(--_font-scale))), var(--font-size-quantum, 0.25rem));
+--surface-font-size: var(--_computed);
+```
+
+`--font-size-base` comes from `typography.base-font-size` — a **rem** number (every shipped brand uses `1`). Sizes are quantized to `--font-size-quantum` (0.25rem) so computed values land on a tidy grid.
+
+## Text roles
+
+The exponent (`--_font-scale`) comes from semantic text roles, not size names. The shipped roles and their fractional exponents:
+
+| Role | fontScale |
 |---|---|
-| `--font-sans` | Primary sans-serif font stack |
-| `--font-mono` | Monospace font stack |
+| `heading` | 3 |
+| `body` | 0 |
+| `caption` | -0.75 |
+| `label` | -0.5 |
+| `code` | -0.25 |
+| `kbd` | -0.5 |
 
-## Line Height Tokens
+Fractional exponents are the point: a discrete integer ladder could never express `caption` at −0.75 steps. Roles also carry role-specific APCA foregrounds (`--ucs-{intent}-fg-l-{role}`) because contrast targets depend on rendered size and weight.
 
-Line height tokens are fixed values, not computed from the scale. They are sized for their intended text role.
+## Font families
 
-| Token | Value | Use |
-|---|---|---|
-| `--line-height-tight` | 1.2 | Headings |
-| `--line-height-normal` | 1.5 | Body text |
-| `--line-height-loose` | 1.75 | Small print, captions |
+Three stacks, from `typography.heading-family`, `body-family`, and optional `mono-family`:
 
-## Letter Spacing Tokens
+| Token | Source |
+|---|---|
+| `--font-heading` | `typography.heading-family` |
+| `--font-body` | `typography.body-family` |
+| `--font-mono` | `typography.mono-family` |
 
-Letter spacing tokens use `em` units so they scale proportionally with font size.
+There is no `--font-sans` and no `font:` config block.
 
-| Token | Value | Use |
-|---|---|---|
-| `--letter-spacing-tight` | -0.02em | Large headings |
-| `--letter-spacing-normal` | 0 | Body |
-| `--letter-spacing-wide` | 0.05em | Labels, badges |
-| `--letter-spacing-wider` | 0.1em | All-caps labels |
+## Density and contrast coupling
 
-<Tip>
-When you use `--letter-spacing-wider` on all-caps labels, pair it with `--type-size-xs` or `--type-size-sm` for the best legibility. Wide tracking on large text tends to feel disconnected rather than refined.
-</Tip>
+Typography participates in the continuous system twice more:
+
+- `typography.density` supplies `font-size-k` and `font-weight-k` coefficients so type can respond to the user's density preference.
+- `--weight-bump` adds font weight when `--contrast-factor` climbs past 1.2 — high-contrast users get sturdier strokes, not just darker ink:
+
+```css
+--weight-bump: calc(clamp(0, (var(--contrast-factor) - 1.2) * 10000, 1) * 100);
+```
+
+## Fluid typography
+
+Per-brand fluid behavior lives in `typography.fluid` (`rate`, optional `floor`, `ceiling`, `quantum`), with per-role envelopes in the generated text-role metrics. There is no top-level `viewport` config block.
+
+<Card title="Config: Typography" icon="font" href="/brand-config/typography">
+  How to author the typography section of a brand config.
+</Card>

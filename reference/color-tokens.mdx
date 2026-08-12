@@ -1,74 +1,60 @@
 ---
-title: "Color Token Reference: All Generated CSS Variables"
+title: "Color Token Reference"
 sidebarTitle: "Color Tokens"
-description: "Complete reference for Substrate's generated color tokens: surface, on-surface, primary, semantic, and border variables with APCA contrast targets."
+description: "Every color custom property Substrate emits: the --ucs-* intent primitives the solver writes, the baked per-mode triptychs, and the context variables."
 ---
 
-Substrate generates color tokens in multiple categories, all derived from the hue and chroma values in your brand config. Every foreground token is APCA-solved against its intended surface at build time — no manual contrast checking required. The values below are the CSS custom properties Substrate emits; equivalent Swift constants and Kotlin values are generated using the same naming convention.
+import IntentPrimitives from '/snippets/generated/intent-primitives.mdx';
 
-## Surface Tokens
-
-Surface tokens define the layered background stack of your UI, from the base page background up through elevated overlays.
-
-| Token | Description |
-|---|---|
-| `--color-surface` | Primary page/screen background |
-| `--color-surface-secondary` | Slightly elevated surface (cards, sidebars) |
-| `--color-surface-tertiary` | Further elevated surface (modals, popovers) |
-| `--color-surface-inverse` | Inverse surface for tooltip/badge backgrounds |
-
-## On-Surface Tokens
-
-On-surface tokens are foreground values — text, icons, and decorative elements — placed on top of the surface stack. Each is APCA-solved against `--color-surface` unless noted.
-
-| Token | Description |
-|---|---|
-| `--color-on-surface` | Body text on primary surface |
-| `--color-on-surface-subtle` | Secondary/muted text |
-| `--color-on-surface-disabled` | Disabled text |
-| `--color-on-surface-inverse` | Text on inverse surface |
-
-## Primary Color Tokens
-
-Primary tokens expose your brand color and all interactive states derived from it.
-
-| Token | Description |
-|---|---|
-| `--color-primary` | Brand primary color |
-| `--color-primary-subtle` | Light tint of primary (backgrounds, tags) |
-| `--color-on-primary` | Text/icon on primary-colored backgrounds |
-| `--color-primary-hover` | Primary at hover state |
-| `--color-primary-active` | Primary at active/pressed state |
-
-## Semantic Tokens
-
-Semantic tokens communicate status and feedback. Each semantic color includes a full triptych: the signal color itself, its on-color, and a subtle background tint for inline callouts and badge backgrounds.
-
-| Token | Description |
-|---|---|
-| `--color-error` | Error state |
-| `--color-on-error` | Text/icon on error backgrounds |
-| `--color-error-subtle` | Error background tint |
-| `--color-warning` | Warning state |
-| `--color-on-warning` | Text/icon on warning backgrounds |
-| `--color-warning-subtle` | Warning background tint |
-| `--color-success` | Success state |
-| `--color-on-success` | Text/icon on success backgrounds |
-| `--color-success-subtle` | Success background tint |
-| `--color-info` | Informational state |
-| `--color-on-info` | Text/icon on info backgrounds |
-| `--color-info-subtle` | Info background tint |
-
-## Border Tokens
-
-Border tokens cover dividers, outlines, and focus rings.
-
-| Token | Description |
-|---|---|
-| `--color-border` | Default border/divider |
-| `--color-border-strong` | Emphasized border |
-| `--color-border-focus` | Focus ring color |
+Substrate does not emit a palette of named color tokens. It emits **per-intent solver primitives** — hue, chroma, and solved lightness channels — and the generated CSS composes final colors from them with `calc()`. Every variable below exists for *every intent the brand declares*: the conventional names (`brand`, `neutral`, `danger`, `warning`, `success`, `info`, `beta`) and any custom intents (`medallion-gold`, `stripe-cyan`, …) get identical treatment. See [Core Concepts](/core-concepts#computed-vs-static-tokens) for the model.
 
 <Note>
-All tokens listed here are generated for every mode — `light`, `dark`, `dimmed`, `high-contrast`, and `high-contrast-dark` — and for any CVD presets you enable (`protanopia`, `deuteranopia`, `tritanopia`). Each mode is scoped to a `data-theme` attribute so you can switch modes at the document or component level without re-shipping your CSS.
+  There is no `--color-*` namespace, and the semantic intent for errors is named `danger`, not `error`. The reference tables on this page are generated from the ground-truth manifest extracted from the engine.
 </Note>
+
+## Intent primitives
+
+The runtime solver writes these for each declared intent, scoped to the surface they were solved against:
+
+<IntentPrimitives />
+
+Two additional solver outputs are not per-intent:
+
+| Variable | Description |
+|---|---|
+| `--ucs-focus-ring` | The solved focus-ring color (target Lc 60, scaled by `contrastFactor`). |
+| `--ctx-surface-l` | The lightness of the actual surface the solver resolved against. |
+
+Per **text role**, the solver also writes a role-specific foreground lightness — `--ucs-{intent}-fg-l-{role}` for the roles `heading`, `label`, `caption`, `code`, and `kbd` — because APCA targets depend on the size and weight a role implies.
+
+## Baked per-mode triptychs
+
+For the no-JS floor and native platforms, the pipeline also bakes resolved values per mode into `generated/brands/<brand>/css/tokens.{light,dark,highContrast,darkHighContrast}.gen.css`. Each intent resolves to a **surface / text / border** triple, as hex. From `generated/brands/delta/booking/css/tokens.light.gen.css`:
+
+```css
+:root {
+  --ucs-surface-surface: #eff7f9;
+  --ucs-surface-text: #080c0d;
+  --ucs-surface-border: #6d7374;
+  --ucs-brand-surface: #bf0039;
+  --ucs-brand-text: #c7003f;
+  --ucs-brand-border: #ff5674;
+}
+```
+
+There is no `-subtle` variant and no `on-*` naming — the foreground for an intent is its `text` channel, derived by the solver, never hand-picked.
+
+## Using color in markup
+
+Elements opt into the cascade with `data-ucs`, and select an intent with the `data-mode` role attribute (a space-separated token list, so state tokens combine):
+
+```html
+<div data-ucs data-mode="brand">Brand surface</div>
+<span data-ucs data-mode="danger">Destructive action</span>
+```
+
+The runtime identifies the active brand by setting `data-brand="<slug>"` on the root. There is no theme attribute — scheme is a continuous preference; see [Modes](/modes/overview).
+
+## Cross-platform parity
+
+The same brand data produces per-mode Swift (`SubstrateSystemTokens`, Display P3) and Kotlin/Compose artifacts with the same surface/text/border triptych, plus DTCG JSON for design tooling. See [iOS](/platforms/ios-swift) and [Android](/platforms/android-kotlin).

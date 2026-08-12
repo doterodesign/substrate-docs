@@ -58,12 +58,14 @@ const { TEXT_ROLES } = await engineImport('generated/global/typescript/text-role
 // ─── Tier 2: structured artifacts ────────────────────────────────────────────
 
 const cssFiles = readAll(['generated/**/*.css', 'src/platforms/web/styles/**/*.css']);
+const runtimeFiles = readAll(['src/platforms/web/runtime/*.ts', 'src/platforms/web/css/*.ts']);
 const cssExact = sorted([
   ...matches(cssFiles, /(?:^|[\s{;(])(--[a-zA-Z][\w-]*)\s*:/gm),
   ...matches(cssFiles, /@property\s+(--[\w-]+)/g),
+  // Variables the runtime and kernel write directly (vars maps / setProperty)
+  ...matches([...runtimeFiles, ...readAll(['src/kernel/**/*.ts'])], /vars\[['"](--[\w-]+)['"]\]/g),
+  ...matches(runtimeFiles, /setProperty\(\s*['"](--[\w-]+)['"]/g),
 ]);
-
-const runtimeFiles = readAll(['src/platforms/web/runtime/*.ts', 'src/platforms/web/css/*.ts']);
 const dataAttributes = sorted([
   ...matches(cssFiles, /\[(data-[a-z][a-z0-9-]*)/g),
   ...matches(runtimeFiles, /(?:setAttribute|toggleAttribute|removeAttribute)\(\s*'(data-[a-z][a-z0-9-]*)'/g),
@@ -132,6 +134,53 @@ const importAliases = matches(aliasFiles, /(@substrate\/[a-z]+(?:\/\*)?)/g);
 const engineCommit = execFileSync('git', ['-C', ENGINE, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 
 // ─── Assemble (fixed key order, sorted collections) ──────────────────────────
+
+// Supportive copy for the manifest-driven reference tables. Names are
+// asserted against the extracted CSS set so the copy can never describe a
+// variable the engine doesn't emit.
+const SCALAR_TOKEN_COPY: Record<string, string> = {
+  '--density': 'Continuous density multiplier written by the runtime from densityFactor (0.8 → 1.3). Scales spacing, sizing, and border radius at use sites.',
+  '--scale': 'Continuous size multiplier composed into spatial calc() expressions alongside --density.',
+  '--contrast-factor': 'The user\'s continuous contrast preference (0.75 → 1.5). Scales every APCA Lc target.',
+  '--motion-factor': 'Continuous motion preference, 0 (instant/reduced) → 1 (full brand duration). Defaults to 0.75; set to 0 under prefers-reduced-motion.',
+  '--type-scale-factor': 'Continuous type-scale preference (0.9 → 1.4), folded into --effective-ratio.',
+  '--duration-base': 'The brand\'s base duration in ms, from motion.duration-base.',
+  '--duration': 'Resolved duration: calc(var(--duration-base) * var(--motion-factor)).',
+  '--easing': 'The brand\'s single authored easing string, from motion.easing.',
+  '--radius-base': 'The brand\'s base corner radius in px, from shape.radius-base.',
+  '--radius': 'Resolved radius: calc(var(--radius-base) * var(--density)).',
+  '--space-unit': 'The brand\'s spatial unit in px, from space.unit. The only --space-* token; spacing is computed, not enumerated.',
+  '--scale-ratio': 'The brand\'s modular type ratio, from typography.scale-ratio.',
+  '--effective-ratio': 'The ratio actually used for type sizing: calc(1 + (var(--scale-ratio) - 1) * var(--type-scale-factor)).',
+  '--font-size-base': 'Base font size in rem, from typography.base-font-size.',
+  '--font-size-quantum': 'Rounding quantum for computed font sizes (default 0.25rem).',
+  '--font-size-rate': 'Fluid typography rate, from typography.fluid.',
+  '--weight-bump': 'Font-weight increase that kicks in at high contrast factors.',
+  '--font-heading': 'Heading font stack, from typography.heading-family.',
+  '--font-body': 'Body font stack, from typography.body-family.',
+  '--font-mono': 'Monospace font stack, from typography.mono-family.',
+  '--ucs-focus-ring': 'The solved focus-ring color (target Lc 60 × contrastFactor).',
+  '--ctx-surface-l': 'The lightness of the actual surface the solver resolved against — the context every foreground was solved for.',
+};
+for (const name of Object.keys(SCALAR_TOKEN_COPY)) {
+  if (!cssExact.includes(name)) {
+    throw new Error(`scalar token copy references unknown variable: ${name}`);
+  }
+}
+
+const INTENT_SUFFIX_COPY: Record<string, string> = {
+  hue: 'OKLCH hue (0–360), constant from the brand config (or the scheme track at the current position).',
+  chroma: 'OKLCH chroma (0–0.4), constant from the brand config (or the scheme track).',
+  'fg-l': 'Solver-written foreground lightness — APCA Lc 75 (× contrastFactor) against the context surface.',
+  'border-l': 'Solver-written border lightness — APCA Lc 50 (× contrastFactor) against the context surface.',
+  'surface-l': 'Solver-written accent surface lightness (deriveSurface).',
+  pattern: 'CSS background-image pattern used in achromat mode so meaning never rides on color alone.',
+};
+for (const suffix of INTENT_PRIMITIVE_SUFFIXES) {
+  if (!(suffix in INTENT_SUFFIX_COPY)) {
+    throw new Error(`intent primitive suffix missing copy: ${suffix}`);
+  }
+}
 
 const intentName = '[a-z][a-z0-9-]*';
 const manifest = {
@@ -216,6 +265,20 @@ const manifest = {
       description: 'Fixed APCA targets, scaled at runtime by contrastFactor; transforms run warmth → cvd → apca.',
       values: COLOR_SOLVER_APCA_POLICY,
       transformOrder: COLOR_SOLVER_TRANSFORM_ORDER,
+    },
+    scalarTokens: {
+      provenance: 'names verified against the generated-css glob; copy authored here and versioned with the generator',
+      description: 'The continuous scalar tokens — the whole dimensional system is these scalars composed with calc(), not enumerated ladders.',
+      entries: Object.entries(SCALAR_TOKEN_COPY).map(([name, description]) => ({ name, description })),
+    },
+    intentPrimitives: {
+      provenance: 'INTENT_PRIMITIVE_SUFFIXES (src/kernel/system/config.ts), engine value import; copy authored here',
+      description: 'Per-intent solver primitives: --ucs-{intent}-{suffix} for every intent the brand declares.',
+      entries: INTENT_PRIMITIVE_SUFFIXES.map((suffix: string) => ({
+        suffix,
+        variable: `--ucs-{intent}-${suffix}`,
+        description: INTENT_SUFFIX_COPY[suffix],
+      })),
     },
     systemIntents: {
       provenance: 'SYSTEM_INTENTS (src/kernel/system/config.ts), engine value import',

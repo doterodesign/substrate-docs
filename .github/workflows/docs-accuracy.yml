@@ -15,3 +15,5 @@ jobs:
       # The ground-truth accuracy gate: every documented identifier must exist
       # in the committed manifest (UCS-1129)
       - run: npm run check:docs
+      # Generated reference partials must match the committed manifest
+      - run: npm run check:partials

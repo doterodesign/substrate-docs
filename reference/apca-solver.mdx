@@ -1,10 +1,12 @@
 ---
 title: "APCA Contrast Solver: How Substrate Targets Lc Scores"
 sidebarTitle: "APCA Solver"
-description: "How Substrate uses APCA to solve foreground lightness at build time. Covers Lc targets, the contrast scale, and overriding defaults safely."
+description: "How Substrate's runtime solver derives foreground lightness with APCA: the fixed policy, contrastFactor scaling, shortfall reporting, and the accessibility gate."
 ---
 
-Substrate uses APCA — the Advanced Perceptual Contrast Algorithm — to compute the lightness of every foreground color token at build time. The result is a system where every on-color token is mathematically guaranteed to be legible against its paired background surface. You never need to run a contrast checker manually because contrast is enforced as part of the build.
+import ApcaPolicy from '/snippets/generated/apca-policy.mdx';
+
+Substrate uses APCA — the Advanced Perceptual Contrast Algorithm — to compute the lightness of every foreground color **at runtime, per surface**. The result is a system where every foreground is derived to be legible against the actual background it sits on. You never hand-pick a text color, and you never run a contrast checker manually — contrast is what the solver *solves for*.
 
 ## What Is APCA?
 
@@ -12,75 +14,41 @@ APCA was developed by Andrew Somers and models how human vision perceives contra
 
 ## Why Substrate Uses APCA
 
-Substrate's token model separates hue and chroma (your brand intent) from lightness (a derived value). When you specify a `primary` color with `hue: 160` and `chroma: 0.18`, you are not specifying how light or dark that color is. Substrate solves for lightness by asking: *what lightness value, at this hue and chroma, produces the required Lc score against the current surface?* That calculation uses the APCA formula. The answer changes across modes — your primary color is lighter in dark mode and darker in light mode — but the contrast guarantee is identical in every case.
+Substrate's token model separates hue and chroma (your brand intent) from lightness (a derived value). When you declare the `brand` intent with `hue: 277` and `chroma: 0.268`, you are not specifying how light or dark that color is. The solver asks: *what lightness value, at this hue and chroma, produces the required Lc score against the current surface?* The answer changes continuously across the scheme axis — your brand color is lighter near the dark end and darker near the light end — but the contrast guarantee is identical at every position.
 
-## Lc Scores
+Lc values are directional: positive for dark-on-light, negative for light-on-dark. Substrate compares absolute values against its targets, so polarity flips are handled transparently.
 
-APCA uses an Lc (lightness contrast) scale instead of a ratio. Lc values are directional: a positive Lc score indicates a dark foreground on a light background (standard polarity), and a negative Lc score indicates a light foreground on a dark background (reverse polarity). Substrate normalizes these to absolute values when applying targets.
+## The solver policy
 
-| Lc | Use case |
-|---|---|
-| Lc 15 | Decorative / non-text elements |
-| Lc 30 | Large text (18px+ bold) |
-| Lc 45 | Normal-weight large text |
-| Lc 60 | Body text minimum (APCA floor; Substrate defaults to Lc 70) |
-| Lc 75 | Small text, high importance |
-| Lc 90 | High-contrast mode minimum |
+The targets are a **fixed, named policy** in the kernel — not per-token numbers:
 
-## Default Contrast Targets
+<ApcaPolicy />
 
-Substrate applies these Lc targets when computing foreground token lightness:
+Every target is then **scaled by the user's `contrastFactor`** (0.75 → 1.5, bounded per brand by `flexibility.contrast`). High contrast is not a special mode with its own targets — the `highContrast` preset simply sets `contrastFactor: 1.3`, which pushes the foreground target from Lc 75 to ~97.5, clamped by the Lc 106 ceiling.
 
-| Token role | Default Lc target |
-|---|---|
-| `--color-on-surface` (body text) | Lc 70 |
-| `--color-on-surface-subtle` (muted text) | Lc 45 |
-| `--color-on-primary` | Lc 75 |
-| `--color-on-error` | Lc 75 |
-| High-contrast mode (all foreground tokens) | Lc 90 |
+The transform order matters and is fixed: **warmth → CVD → APCA**. Color is adjusted for the user's viewing conditions and color vision *before* any contrast math, so the solve is honest about what the user actually sees.
 
-## Adjusting Contrast Targets
-
-You can raise or lower the default targets for specific roles using the `contrast-targets` field in your brand config. Raising a target produces higher-contrast foreground colors; lowering it produces subtler ones. You cannot set any target below Lc 30 — Substrate enforces this floor to prevent illegible output.
-
-```json
-{
-  "brand": "acme",
-  "contrast-targets": {
-    "body-text": 75,
-    "muted-text": 55
-  }
-}
-```
+Substrate additionally consults a size/weight-aware Lc floor table so small or light text gets stricter minimums.
 
 <Warning>
-Lowering `body-text` below Lc 60 or `muted-text` below Lc 30 may produce text that is difficult to read for users with low vision. Only lower targets when you have a specific, justified reason — not to achieve a particular aesthetic.
+  The size/weight floor table is Substrate's **own construction**, not an official APCA artifact — the kernel's source says exactly that, and recommends validating against live APCA tooling before claiming conformance levels.
 </Warning>
 
-## APCA Comments in Generated CSS
+## How the solve works
 
-Every foreground token in the generated CSS includes its solved Lc score as an inline comment. Use these comments to audit your token set, verify targets were met, and communicate contrast decisions in code review.
+For each intent and surface:
 
-```css
-:root[data-theme="light"] {
-  --color-on-surface: oklch(12% 0.02 210); /* APCA Lc 71 */
-  --color-on-surface-subtle: oklch(42% 0.02 210); /* APCA Lc 47 */
-  --color-on-primary: oklch(99% 0.01 160); /* APCA Lc 76 */
-  --color-on-error: oklch(98% 0.01 25); /* APCA Lc 75 */
-}
+1. The intent's scheme track is evaluated at the current `scheme` position → hue and chroma.
+2. Warmth and CVD transforms adjust the color for the user.
+3. A binary search over OKLCH lightness (~30 iterations, precision ~1e-9) finds the L that meets the scaled Lc target against the context surface (`--ctx-surface-l`). OKLCH's perceptual uniformity is what makes this search sound — L moves without dragging hue or chroma.
+4. The results are written as `--ucs-{intent}-fg-l`, `--ucs-{intent}-border-l`, per-role `--ucs-{intent}-fg-l-{role}` values, and `--ucs-focus-ring`.
 
-:root[data-theme="dark"] {
-  --color-on-surface: oklch(94% 0.02 220); /* APCA Lc 72 */
-  --color-on-surface-subtle: oklch(64% 0.02 220); /* APCA Lc 46 */
-  --color-on-primary: oklch(8% 0.01 160); /* APCA Lc 77 */
-  --color-on-error: oklch(6% 0.01 25); /* APCA Lc 75 */
-}
-```
+## When a target can't be met
 
-## High-Contrast Mode
+Some hue/chroma/surface combinations cannot reach the target within gamut. The solver never silently passes: its solution carries an explicit **`unmetLc`** shortfall value alongside the clamped lightness. And at generation time, a **build-failing accessibility gate** sweeps the whole brand corpus — APCA and CVD checks together — and fails the build with per-case output rather than emitting a brand that undershoots its policy.
 
-In `high-contrast` and `high-contrast-dark` modes, Substrate overrides all foreground Lc targets to Lc 90, regardless of your `contrast-targets` config. This ensures that users who opt into high-contrast mode via their OS or your UI receive a meaningful accessibility uplift across every token in the system.
+There are no per-token Lc comments in the generated CSS — with runtime solving against the actual surface, a baked Lc annotation would be meaningless. The gate and `unmetLc` are the verification surface.
 
 <Note>
-APCA is the recommended contrast algorithm for WCAG 3.0, which is currently in development. Substrate adopts it now so your design system is future-ready — when WCAG 3.0 becomes the standard, your tokens will already meet it.
+  APCA is the candidate contrast method for WCAG 3.0, which is still in development. Substrate adopts it now for its perceptual accuracy — but WCAG 3.0 is not final, and Substrate's own kernel avoids claiming conformance ahead of the standard. Pair APCA targets with the CVD caveats on the [Color Vision](/modes/color-vision) page.
 </Note>
