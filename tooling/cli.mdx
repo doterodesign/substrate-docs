@@ -1,0 +1,144 @@
+---
+title: "The Substrate CLI"
+sidebarTitle: "CLI"
+description: "The substrate command-line tool: init, add, setup, upgrade, adopt, and artifact — consumer-side onboarding, catalog delivery, and transactional engine upgrades."
+---
+
+The `substrate` CLI is a **consumer-side onboarding and delivery tool**. It wires a project to AI coding tools, copies catalog entries in, consumes signed engine bundles, and upgrades them transactionally. It is not how tokens get generated — generation runs as `npm run generate` in the engine checkout — and it has no `build` or `audit` verb.
+
+Six verbs: `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact`, plus `--version`. Every verb except `init` answers `--help`.
+
+<Warning>
+  **Never run `npx substrate`.** The CLI package (`@unknown-creatives/substrate`) is not yet published to npm, and a bare `npx substrate` fetches an unrelated third-party package that happens to own the name. Run the bin from a Substrate checkout that has had `npm ci`:
+
+  ```bash
+  # One-off:
+  node "$SUBSTRATE_REPO/packages/cli/bin/substrate-init.js" init --dry-run --platform claude-code
+
+  # Session alias:
+  substrate() { node <substrate-checkout>/packages/cli/bin/substrate-init.js "$@"; }
+  ```
+
+  The bin must stay inside its checkout — its dependencies resolve from the checkout root, so copying `bin/` out standalone fails with `ERR_MODULE_NOT_FOUND`. Requires Node ≥ 22. Every failure prints a plain `substrate: <message>` with no stack trace; set `SUBSTRATE_DEBUG=1` to see one.
+</Warning>
+
+## How the CLI finds the engine
+
+Every project-facing verb starts from `process.cwd()` and probes for a vendored engine, first match wins:
+
+| Probe | Layout model |
+|---|---|
+| `substrate/engine/` | `client` — the standard vendored layout |
+| `engine/` at project root | `client` with a remapped root |
+| `node_modules/@unknown-ui/substrate/` | `install` (legacy) |
+| `substrate/` subdirectory | `clone-subdir` (legacy) |
+| `skills/substrate-config/` at project root | `clone-root` — the engine repo itself |
+| `$SUBSTRATE_PATH` | `manual` — must resolve *inside* the project root |
+
+If nothing matches, the CLI exits 1 with `Could not find Substrate in this project.` and acquisition guidance: the engine is delivered separately from the CLI, either as a signed bundle consumed by `substrate setup` (supervised engagement) or as a vendored copy from a source checkout.
+
+## `substrate init`
+
+Wires an already-vendored engine to your AI coding tools and scaffolds the client-owned layout. **`init` does not obtain the engine** — it requires one on disk.
+
+```bash
+substrate init [--refresh] [--platform <name>] [--all] [--dry-run] [--report-aliases]
+```
+
+| Flag | Effect |
+|---|---|
+| `--platform <name>` | Configure exactly one platform, non-interactive |
+| `--all` | Select every tier-1 and tier-2 platform |
+| `--refresh` | Re-run with the platforms recorded in `.substrate/state.yaml` |
+| `--dry-run` | Print planned actions, write nothing, exit 0 (still requires a detectable engine) |
+| `--report-aliases` | Print bundler-alias blocks instead of writing them |
+
+With no selection flag, `init` opens an interactive checkbox of detected tools — so scripted or CI usage **must** pass `--platform` or `--all`; a non-interactive run otherwise selects nothing and exits 0 with `No platforms selected. Nothing to do.`
+
+Fourteen platforms are known; tier 1 (Claude Code, Cursor, Windsurf, GitHub Copilot, Gemini CLI, Codex CLI, Kiro) get skill symlinks plus an instruction file, tier 2 (Cline, Continue.dev, Junie, Tabnine, Augment) get instructions only. Instruction files in append mode are edited only between `<!-- substrate:start -->` / `<!-- substrate:end -->` markers, preserving the rest of your `CLAUDE.md` or equivalent.
+
+On disk, `init` links `agents/bloom/` and the per-platform skills (see [Bloom](/tooling/bloom)), records selections in `.substrate/state.yaml`, scaffolds the client content roots (`substrate/{components,brands,knowledge,references}/`), seeds the delivery manifest at `.substrate/manifest.yaml`, writes the `substrate/substrate.config.yaml` and `substrate/properties.yaml` overlays, emits `.substrate/aliases.js` (an importable ES module exporting `substrateAliases` for your bundler config) and `.substrate/catalog.json`, and — when `.claude/` exists and Claude Code is selected — merges validation hooks into `.claude/settings.json`.
+
+Success ends with `Done! Substrate is ready in this project.` and exit 0. Content roots that could not be created are **blockers**: `init` prints `Init completed with N blocker(s) — see the !! lines above.` and exits 1.
+
+<Note>
+  The scaffolded `substrate.config.yaml` and `properties.yaml` overlays each end in a literal `{}`. That is intentional — every engine default is present but commented out, and the `{}` keeps the document a valid empty mapping until you uncomment or add your first key (then you remove it). Don't delete the braces on their own.
+</Note>
+
+## `substrate add`
+
+Copies a catalog entry into the client content root, records provenance in the delivery manifest, then runs your generate command:
+
+```bash
+substrate add <entry-id|name> --generate-command <cmd> [--catalog <dir>]
+substrate add --list [--catalog <dir>]
+```
+
+`--list` is read-only discovery. An entry id is a path like `components/button`; a bare name is resolved by scanning (ambiguity is an error). Progress prints five numbered steps (`1/5 resolve entry` … `5/5 generate`) and ends with `Added catalog/<entry-id>@<version>`.
+
+Entries declare `kind` (`component`, `brand`, or `doc`), a strict-semver `version`, `requires`, `summary`, and `changelog` in an `entry.yaml`. Every delivered text file gets a provenance header comment. `add` **never overwrites** a client-owned file, and if the generate command fails it rolls the whole delivery back — files, directories, and manifest.
+
+## `substrate setup`
+
+The supervised-engagement onboarding door — the verb that **does** obtain the engine, from a signed bundle. Two mutually exclusive modes:
+
+```bash
+substrate setup (--plan | --dry-run) --engine-artifact <path> \
+  [--brand <id>]... [--component <id>]... [--target <css|swift|compose>]...
+substrate setup --apply <plan.json> --signing-public-key <pem|file|env:NAME>
+```
+
+Plan mode writes nothing: it prints a canonical JSON plan (six phases: engine acquisition, ownership records, project projection, host integration, generation, verification) to stdout. Save it **outside** the client repo and redirect stderr separately (`2> plan.err`) so diagnostics don't corrupt the plan file.
+
+Apply mode re-derives the plan from the current repo and refuses if anything drifted, takes a lock, verifies the bundle (attestation + checksum + signature against your trusted key), runs native verification for `swift`/`compose` targets, and commits — or rolls back. A committed apply produces the sealed engine under `substrate/engine/`, generated output, `substrate/project.yaml` (the project declaration: `brands`, `components`, `targets`), one integration module at `src/substrate.setup.ts`, and the `.substrate/` provenance files.
+
+## `substrate upgrade`
+
+Swaps in a newer signed engine bundle transactionally:
+
+```bash
+substrate upgrade --engine-artifact <bundle> \
+  --signing-public-key <pem|file|env:NAME> \
+  --engine-version <semver> \
+  --regenerate-command <cmd> --verify-command <cmd> \
+  [--report-id <id>] [--modified-engine <refuse|discard|freeze|engage-uc>]
+```
+
+Six numbered steps (`1/6 verify artifact` … `6/6 report`), ending `Upgrade complete: engine <old> -> <new>`. The bundle's three sidecars (`.attestation.json`, `.bundle.sha256`, `.bundle.sig`) must sit beside it. If the installed engine has local edits, the default `--modified-engine refuse` stops before the swap and names the three explicit doors (`discard`, `freeze`, `engage-uc`). Client-owned resources — `.substrate/`, the overlays, the generated root, catalog-delivered files — are never clobbered by the swap. The report lands at `.substrate/reports/upgrade-<id>.json`.
+
+## `substrate adopt`
+
+Triage for upgrade findings, with consent gates and rollback:
+
+```bash
+substrate adopt --report <json> [--finding <id>] [--apply]
+substrate adopt --rollback <id>
+```
+
+`adopt` reads the report `upgrade` wrote and lists findings of three types: path collisions, overlay duplications, and modified delivered files. Only two operations are automated — adopting an engine file over a colliding client file, and removing an overlay the engine now covers. Everything else is routed to manual (or [Bloom](/tooling/bloom)-assisted) reconciliation. Nothing mutates without `--apply` plus exactly one `--finding`; every apply writes a rollback record first, and `--rollback <id>` replays it in reverse.
+
+## `substrate artifact assemble`
+
+The vendor-side release step — it runs from a Substrate *source checkout* and refuses to run anywhere else. It produces the signed `.bundle` (plus attestation and checksum/signature sidecars) that `setup` and `upgrade` consume:
+
+```bash
+substrate artifact assemble --source-root <dir> --output-directory <dir> \
+  --version <semver> --signing-private-key <pem|file|env:NAME>
+```
+
+It appears here so the artifacts in the other verbs have a named origin; keep it out of consumer runbooks.
+
+## Files the CLI owns
+
+| Path | Written by | Role |
+|---|---|---|
+| `.substrate/state.yaml` | `init`, `setup --apply` | Platform selections, layout model, optional `roots:` remap (preserved across rewrites) |
+| `.substrate/manifest.yaml` | `init` (seed), `add`, `upgrade` | Delivery manifest: engine hash set + catalog fetch records |
+| `.substrate/aliases.js` | `init`, `setup` | Importable bundler-alias manifest (`@substrate/engine`, `@substrate/components/*`, `@substrate/generated/*`) |
+| `.substrate/catalog.json` | `init` | Catalog discovery index (best-effort, never fails init) |
+| `substrate/project.yaml` | `setup` | Project declaration: `brands`, `components`, `targets` |
+| `substrate/substrate.config.yaml` | `init`, `setup` | Org-wide system-config overlay (all defaults commented) |
+| `substrate/properties.yaml` | `init`, `setup` | Client property overlay |
+| `.substrate/reports/`, `.substrate/adopt/` | `upgrade`, `adopt` | Upgrade reports and rollback records |
+
+Environment variables: `SUBSTRATE_PATH` (manual engine location, must be inside the project), `SUBSTRATE_DEBUG` (re-enable stack traces).

@@ -1,0 +1,55 @@
+---
+title: "Bloom: The Substrate Design-System Agent"
+sidebarTitle: "Bloom Agent"
+description: "Bloom is the AI agent persona bundled with Substrate — a Markdown identity plus twelve routed skills that substrate init links into your project for Claude Code, Cursor, and other coding agents."
+---
+
+Bloom is Substrate's design-system specialist for AI coding assistants. It is **not a runtime library and not a CLI subcommand** — it is a persona bundle: a set of Markdown files that instruct a coding agent (Claude Code, Cursor, Codex CLI, and similar) to act as a Substrate expert, plus a catalog of skills it routes requests to. You interact with it conversationally, inside whatever agent tool you already use.
+
+## How it gets into your project
+
+Bloom ships with the engine and is installed by [`substrate init`](/tooling/cli), which:
+
+1. **Symlinks `agents/bloom/`** from the vendored engine into your project (`OK Linked agents to agents/bloom/`). The link is refreshed on `init --refresh`, and `init` never overwrites a real directory at that path.
+2. **Symlinks the twelve `skills/*` directories** into each selected tool's skills directory (`.claude/skills/`, `.cursor/skills/`, …).
+3. **Appends an `### Agent: Bloom` block** to your `CLAUDE.md` / `AGENTS.md` (or equivalent), which is what tells your coding agent the persona exists and when to activate it.
+4. **Scaffolds hooks** that validate component and doc config writes before they land, surface a brand-impact note after brand config writes, and store session learnings into `memory/` on stop.
+
+The persona itself is four files: `bloom.md` (entry point and activation), `soul.md` (identity), `personality.md` (communication style), and `abilities.md` (routing). Three sibling judge personas — `evaluator`, `skeptic`, and `tiebreaker` — support its review workflows.
+
+## Activating and dismissing
+
+Activate Bloom by mentioning it in conversation — "Bloom", "Hey Bloom", "@Bloom", "talk to Bloom" — or by asking for Substrate work by name: creating a component config, auditing the system, anything involving the adaptive color system, APCA contrast, theming, tokens, or platform transforms. Once active, the persona persists until explicitly dismissed ("dismiss Bloom", "thanks Bloom", "exit Bloom").
+
+## What it can do: the skill catalog
+
+Bloom routes each request to one of twelve skills. The roster is generated into `generated/skills/REGISTRY.gen.yaml` — each skill's `SKILL.md` is the source of truth, and the registry is a derived index Bloom searches to answer "do I have a skill for this?":
+
+| Skill | Domain |
+|---|---|
+| `substrate-config` | Component config authoring |
+| `substrate-brand` | Brand registration and brand config work |
+| `substrate-audit` | System, artifact, and knowledge audits |
+| `substrate-docs` | Documentation review |
+| `substrate-knowledge` | Knowledge-base queries |
+| `substrate-migrate` | Guided migration (`analyze` / `plan` / `apply` / `verify` subcommands) |
+| `substrate-ontology` | Ontology maintenance |
+| `substrate-reflect` | Retrospective analysis (manually invoked) |
+| `substrate-self-check` | Health-check orchestration |
+| `substrate-user-config` | User-level preference config |
+| `figma-to-code` | Figma design translation |
+| `skill-creator` | Creating new skills |
+
+When no skill matches, Bloom names the capability gap, surfaces the nearest match, logs the gap to `memory/capability-gaps.md`, and can create a new skill through a human-gated pipeline. Six multi-step workflows (`build-component`, `evolve`, `guided-migration-pipeline`, `personalization-pipeline`, `skill-creation-pipeline`, `system-health`) compose skills into larger procedures.
+
+## Memory and references
+
+Bloom reads and writes a project-local `memory/` directory (scaffolded with `memory/MEMORY.md`) for learnings that persist across sessions, and reads the vendored `references/` material — architecture, component model, platform contracts, token system, ontology — rather than carrying copies of system facts in prose.
+
+<Note>
+  Bloom is a persona your agent tool loads, not a plugin or a daemon. It has no `plugin.json`, no scheduler, and takes no action unprompted — everything happens inside a conversation you start. None of its supporting modules are importable from the engine's public API.
+</Note>
+
+## For engine contributors
+
+The engine repo (not the published consumer surface) also has `npm run bloom:self-check` — an umbrella that runs seven drift and docs-health guards in order and exits non-zero only when a *blocking* guard fails or was never able to run. Advisory guards (brand-doc validation, ontology audit, docs health) report findings without failing the run. If you contribute to the engine itself, run it before sending changes; as a consumer you never need it.

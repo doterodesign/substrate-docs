@@ -72,7 +72,15 @@ const dataAttributes = sorted([
   ...matches(runtimeFiles, /\[(data-[a-z][a-z0-9-]*)/g),
 ]);
 
-const cliFiles = readAll(['packages/cli/bin/substrate-init.js']);
+// The CLI entry is a crash-guard shim (substrate-init.js) that dynamically
+// imports main.js, where dispatch and the usage banner live; setup's usage
+// text lives in lib/setup-plan.js. Deliberately NOT lib/*.js wholesale —
+// scaffold/template modules embed content whose `--` strings are not flags.
+const cliFiles = readAll([
+  'packages/cli/bin/substrate-init.js',
+  'packages/cli/bin/main.js',
+  'packages/cli/bin/lib/setup-plan.js',
+]);
 const cliVerbs = sorted([
   ...matches(cliFiles, /command === '([a-z][a-z-]*)'/g),
   ...matches(cliFiles, /Usage: substrate ([a-z][a-z-]*)/g),
@@ -238,7 +246,7 @@ const manifest = {
       exact: dataAttributes,
     },
     cliCommands: {
-      provenance: 'CLI dispatch and usage banner (packages/cli/bin/substrate-init.js); npm scripts from engine package.json',
+      provenance: 'CLI dispatch and usage banner (packages/cli/bin/main.js via the substrate-init.js shim, plus lib/setup-plan.js); npm scripts from engine package.json',
       description: 'The real CLI surface. There is no `substrate build`; generation runs through npm scripts in the engine checkout.',
       binary: 'substrate',
       verbs: cliVerbs,
@@ -246,7 +254,7 @@ const manifest = {
       npmScripts,
     },
     cliFlags: {
-      provenance: 'flag spellings in packages/cli/bin/substrate-init.js',
+      provenance: 'flag spellings in packages/cli/bin/main.js and lib/setup-plan.js',
       description: 'CLI flags, so `--flag` spellings in shell/inline code are not mistaken for CSS variables.',
       exact: cliFlags,
     },

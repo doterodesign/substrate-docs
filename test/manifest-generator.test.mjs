@@ -55,6 +55,10 @@ test('manifest includes sentinel identifiers and excludes known fabrications', {
     [...c.cliCommands.verbs].sort(),
     ['add', 'adopt', 'artifact', 'init', 'setup', 'upgrade'],
   );
+  for (const f of ['--refresh', '--dry-run', '--platform', '--report-aliases', '--engine-artifact']) {
+    assert.ok(c.cliCommands.flags.includes(f), `missing cli flag ${f}`);
+    assert.ok(c.cliFlags.exact.includes(f), `missing cli flag (cliFlags) ${f}`);
+  }
   for (const k of ['light', 'dark', 'dimmed', 'highContrast', 'darkHighContrast']) {
     assert.ok(k in c.presets.values, `missing preset ${k}`);
   }

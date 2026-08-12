@@ -156,7 +156,7 @@ flexibility:
   </Accordion>
 
   <Accordion title="gradients">
-    An open map of named gradient recipes. Each has a `type` (`linear` or `radial`), geometry (`angle`, or `shape` and `origin`), and a list of `stops`. Unlike intents, a gradient stop **does** author `lightness` — it references an intent by name and pins a lightness and position:
+    An open map of named gradient recipes. Each has a `type` (`linear`, `radial`, or `conic`), geometry (`angle` for linear and conic, `shape` and `origin` for radial), and a list of `stops`. Unlike intents, a gradient stop **does** author `lightness` — it references an intent by name and pins a lightness and position:
 
     ```yaml
     gradients:
@@ -174,15 +174,52 @@ flexibility:
   </Accordion>
 
   <Accordion title="ramps">
-    An open map of ramp recipes that generate stepped opaque scales from an intent — for Tailwind-style palettes and DTCG export. A recipe names its source `intent`, a list of `steps` (pure labels, lightest to darkest), and optionally `lightest-l`, `darkest-l`, `gamut`, `outputs`, and `sample`. The related top-level `color` key holds ramp orchestration (`ramps` defaults and `ramp-outputs` formats) — it is not where you put brand colors.
+    An open map of ramp recipes that generate stepped opaque scales from an intent — for Tailwind-style palettes and DTCG export. A recipe names its source `intent`, a list of `steps` (pure labels, lightest to darkest — lightness comes from position, not the label), and optionally `lightest-l` (default `0.97`), `darkest-l` (default `0.18`), `gamut` (`srgb` or `p3`), `outputs`, and `sample`:
+
+    ```yaml
+    ramps:
+      brand-scale:
+        intent: brand
+        steps: [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+        lightest-l: 0.97
+        darkest-l: 0.18
+        gamut: srgb
+    ```
+
+    The related top-level `color` key holds ramp orchestration — `color.ramps` defaults per intent and `color.ramp-outputs` per-platform format lists — it is not where you put brand colors. See [Color](/brand-config/color).
   </Accordion>
 
   <Accordion title="materials">
-    An open map of named filter compositions — blur, saturate, tint, noise — applied through `data-mode`. Paired with the optional `effects: { blur-unit: … }` block that sets the base blur unit.
+    An open map of named surface treatments applied through the `data-mode` token list (`[data-mode~="frosted"]`). Each material declares per-channel blocks — `background`, `foreground`, `border` — and each channel can carry a `filter` composition (`blur`, `saturate`, `brightness`, `contrast`, `grayscale`, `hue-rotate`, `invert`) plus channel properties like `alpha` and `noise` (a grain overlay, 0–1). A frosted-glass material:
+
+    ```yaml
+    materials:
+      frosted:
+        background:
+          filter: { blur: 2, saturate: 1.8 }
+          alpha: 0.7
+          noise: 0.3
+        foreground:
+          filter: { brightness: 1.05 }
+
+    effects:
+      blur-unit: 4    # px — blur values are multiples of this
+    ```
+
+    Blur values are multiples of the base unit from the optional `effects: { blur-unit: … }` block, emitted as `blur(calc(var(--blur-unit) * 2))`. Backdrop filters are wrapped in an `@supports` guard, and a non-zero `noise` adds an SVG-turbulence grain overlay.
   </Accordion>
 
   <Accordion title="system">
-    A free-form map of system-config overrides, deep-merged over Substrate's defaults for this brand only. Use it to change engine-level behavior a brand needs to diverge on, rather than forking the engine.
+    A free-form map of system-config overrides, deep-merged over Substrate's defaults for this brand only. The cascade is defaults → user override → brand `system:` block, so use it to change engine-level tuning a brand needs to diverge on, rather than forking the engine. For example, a brand with a display face that wants looser optical line-height tracking:
+
+    ```yaml
+    system:
+      typography:
+        optical:
+          line-height-rate: 0.14    # engine default: 0.12
+    ```
+
+    Any key from the engine's `system.config.yaml` tuning surface — optical typography rates and clamps, CVD safe arcs, layout structure thresholds — can be overridden here.
   </Accordion>
 </AccordionGroup>
 
@@ -193,7 +230,7 @@ Discovery is a directory scan. For each directory under the brands root, the loa
 Two validations run at load. The intent roster must contain `brand` and `neutral`, or the load throws a missing-required-intent error. Any intent using scheme-track grammar is desugared and validated, including reference cycles and unknown intent names.
 
 <Warning>
-  Substrate has no build verb and no per-brand build flag. Generation runs as `npm run generate` in the engine checkout, which regenerates every brand. The `substrate` CLI is a consumer-side onboarding tool with the verbs `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact`.
+  Substrate has no build verb and no per-brand build flag. Generation runs as `npm run generate` in the engine checkout, which regenerates every brand. The `substrate` CLI is a consumer-side onboarding tool with the verbs `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact` — see [the CLI reference](/tooling/cli).
 </Warning>
 
 ## Explore each config section

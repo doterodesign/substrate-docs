@@ -28,3 +28,23 @@
   deliberately not machine-checked.
 - Pages corrected in place under existing URLs; two structural additions:
   integration.mdx and the generated partials.
+
+# Decisions (feedback round, 2026-08-12)
+
+- Theme is `mint` (user: no centered text, no condensed center column —
+  willow does both; keep colors/logo/favicon).
+- New nav group "Tooling" (tooling/cli, tooling/bloom), added at the user's
+  request. Sources of truth: .claude/reports/2026-08-12-cli-survey-for-docs.md
+  and 2026-08-12-bloom-agent-research.md (both pinned to engine 0f32f6a6,
+  claims [verified] against a live bin run / actual src — NOT the engine's own
+  stale abilities.md or the pre-UCS-1124 CLI survey in the engine repo).
+- Bloom docs constraints: Bloom is a persona bundle, NOT a Claude Code plugin,
+  not proactive/scheduled, 12 skills (not 14), substrate-migrate uses
+  analyze/plan/apply/verify subcommands (no --analyze flags), init does NOT
+  install a `bloom` skill into .claude/skills/ (test-fixture trap), and no
+  Bloom/docs-health symbol is importable from a public barrel.
+- Example-fidelity parity: every config section (required AND optional) gets a
+  YAML example at the same depth; optional-section examples come from engine
+  types + test fixtures when no demo brand exercises the feature.
+- Legal phrasing refinement: "shipped brand(s)" is banned alongside brand
+  names — it implies real clients. Say "bundled demo brand(s)".

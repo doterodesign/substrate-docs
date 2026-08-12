@@ -26,6 +26,11 @@
   (docs/superpowers/specs/2026-08-12-cli-npm-publishing-design.md).
 
 ## Tooling traps
+- Engine CLI entry: packages/cli/bin/substrate-init.js is a 23-line
+  crash-guard shim since UCS-1124; dispatch + usage live in bin/main.js,
+  setup usage in bin/lib/setup-plan.js. The manifest generator extracts CLI
+  verbs/flags from those three files — NOT lib/*.js wholesale (scaffold /
+  template modules embed `--` strings that are not flags).
 - tsx CLI needs an IPC unix socket → blocked by the Bash sandbox; run
   manifest generation with sandbox disabled.
 - tsx must run with cwd inside the engine checkout (tsconfig alias

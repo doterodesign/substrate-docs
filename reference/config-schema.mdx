@@ -100,7 +100,7 @@ presets:
 
 An **open map** of intent colors. Only `brand` and `neutral` are hard-required (the loader throws `missing-required-intent` otherwise). The conventional names — `brand`, `neutral`, `danger`, `warning`, `success`, `info`, `beta` — get no special treatment over custom intents; the brand's own map is the source of truth. Each intent authors `hue` (0–360) and `chroma` (0–0.4) only — lightness is solver-owned.
 
-An intent's color may vary across the scheme axis with a **scheme track**: `scheme-end: { hue, chroma }` (shorthand for the dark end), or a full `scheme-track` list of stops `{ at, hue, chroma }` / `{ at, from-intent }` with optional `blend: oklch | oklab`. Schema-valid, though no shipped brand currently exercises it.
+An intent's color may vary across the scheme axis with a **scheme track**: `scheme-end: { hue, chroma }` (shorthand for the dark end), or a full `scheme-track` list of stops `{ at, hue, chroma }` / `{ at, from-intent }` with optional `blend: oklch | oklab`. Schema-valid, though none of the bundled demo brands currently exercises it.
 
 ### `elevation` — required
 
@@ -126,11 +126,54 @@ Named positions on the preference continuum: `mode`, `density`, and `contrast` a
 
 <Presets />
 
-### Optional sections
+### `ramps` and `color` — optional
 
-- `ramps` / `color.rampOutputs` — opt-in numbered ramp recipes (the only place a `--color-*` style output exists — a brand that opts in gets static ramp files).
-- `gradients` — named gradient recipes with intent-referencing stops (the one place lightness is authored).
-- `materials` — material definitions; `effects` — `blur-unit`; `system` — system-config overrides.
+`ramps` is an open map of ramp recipes — the only place a `--color-*` style output exists; a brand that opts in gets static stepped scales generated from an intent. Each recipe: `intent` (source intent name), `steps` (number list, lightest → darkest; pure labels — lightness is assigned by position), `lightest-l` (default `0.97`), `darkest-l` (default `0.18`), `gamut` (`srgb` | `p3`, default `srgb`), `outputs` (adapter list, default `[tailwind]`), `sample`.
+
+The sibling top-level `color` key is ramp *orchestration*, not brand color: `color.ramps` holds `defaults` and per-intent settings (`stops`, `lightest-l`, `darkest-l`, `alpha-equivalent`, `surfaces`, `sample`), and `color.ramp-outputs` maps each platform (`web`, `ios`, `android`, `react-native`) to `formats`, `materialization` (`dynamic` | `static` | `both`), and an `include` list.
+
+### `gradients` — optional
+
+An open map of named gradient recipes — the one place lightness is authored. Each: `type` (`linear` | `radial` | `conic`), geometry (`angle` for linear/conic, `shape` and `origin` for radial, optional `repeat`), and two or more `stops`. A stop references an `intent` by name (or `transparent`) and carries `at` (position) plus either an authored `lightness` or a `channel` (`surface` | `fg` | `border`) to use the APCA-solved value, with optional `chroma` and `alpha`:
+
+```yaml
+gradients:
+  hero:
+    type: linear
+    angle: 135
+    stops:
+      - intent: brand
+        lightness: 0.52
+        at: 0
+      - intent: acme-mint
+        lightness: 0.91
+        at: 100
+```
+
+### `materials` and `effects` — optional
+
+`materials` is an open map of named surface treatments applied via the `data-mode` token list. Each material declares channel blocks — `background`, `foreground`, `border` — and each channel takes a `filter` composition (`blur`, `saturate`, `brightness`, `contrast`, `grayscale`, `hue-rotate`, `invert`) plus channel properties (`alpha`, `noise`, `lightness`, `chroma`):
+
+```yaml
+materials:
+  frosted:
+    background:
+      filter: { blur: 2, saturate: 1.8 }
+      alpha: 0.7
+```
+
+`effects` holds `blur-unit` (px) — filter blur values are emitted as multiples of it.
+
+### `system` — optional
+
+A free-form map deep-merged over the engine's `system.config.yaml` defaults for this brand only (cascade: defaults → user override → brand block). Overridable keys include optical typography rates and clamps, CVD safe arcs, and layout structure thresholds:
+
+```yaml
+system:
+  typography:
+    optical:
+      line-height-rate: 0.14
+```
 
 <Warning>
   A config missing `intents.brand`, `intents.neutral`, or any required section fails at load — the audits found the previous version of this page documented a schema under which **no config could ever validate**. Every field on this page is checked against the ground-truth manifest in CI.

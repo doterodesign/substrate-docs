@@ -45,7 +45,7 @@ typography:
   </Accordion>
 
   <Accordion title="density">
-    Optional signed coefficients linking type to the density slider. `font-size-k` controls how much `--density` pushes font size, and `font-weight-k` how much it pushes weight. All six shipped brands set both to `0`, which decouples type from density — but a brand that wants text to tighten alongside spacing can dial them up.
+    Optional signed coefficients linking type to the density slider. `font-size-k` controls how much `--density` pushes font size, and `font-weight-k` how much it pushes weight. The bundled demo brands all set both to `0`, which decouples type from density — but a brand that wants text to tighten alongside spacing can dial them up.
   </Accordion>
 </AccordionGroup>
 
@@ -67,7 +67,7 @@ Every size in the system then comes from one expression, evaluated per element:
   var(--font-size-quantum, 0.25rem));
 ```
 
-The consequence is that a brand's typographic personality is two numbers. Raising `scale-ratio` from 1.2 to 1.25 widens the gap between every pair of adjacent roles at once, and a user who prefers larger type moves `typeScaleFactor` up — bounded by `flexibility.type-scale`, which every shipped brand sets to `{ min: 0.9, max: 1.4 }` — and the whole hierarchy expands proportionally without a regenerate.
+The consequence is that a brand's typographic personality is two numbers. Raising `scale-ratio` from 1.2 to 1.25 widens the gap between every pair of adjacent roles at once, and a user who prefers larger type moves `typeScaleFactor` up — bounded by `flexibility.type-scale`, which every bundled demo brand sets to `{ min: 0.9, max: 1.4 }` — and the whole hierarchy expands proportionally without a regenerate.
 
 ## Semantic text roles
 

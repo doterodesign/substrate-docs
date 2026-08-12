@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "willow",
+  "theme": "mint",
   "name": "Substrate",
   "colors": {
     "primary": "#1be49c",
@@ -72,6 +72,13 @@
               "platforms/web",
               "platforms/ios-swift",
               "platforms/android-kotlin"
+            ]
+          },
+          {
+            "group": "Tooling",
+            "pages": [
+              "tooling/cli",
+              "tooling/bloom"
             ]
           }
         ]

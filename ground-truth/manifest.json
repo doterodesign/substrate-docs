@@ -1,6 +1,6 @@
 {
   "description": "Ground-truth manifest for substrate-docs: every identifier the docs may reference, extracted from a Substrate engine checkout. Regenerate with scripts/generate-manifest.ts; never hand-edit.",
-  "engineCommit": "9a76ab85f9c670f3b5cdf2f298abf617479121f5",
+  "engineCommit": "0f32f6a6391ec238c4ef078d297cbc7608b6f2ae",
   "categories": {
     "cssVariables": {
       "provenance": "generated-css-glob (generated/**/*.css, src/platforms/web/styles/**/*.css): custom-property definitions and @property registrations",
@@ -1087,7 +1087,7 @@
       ]
     },
     "cliCommands": {
-      "provenance": "CLI dispatch and usage banner (packages/cli/bin/substrate-init.js); npm scripts from engine package.json",
+      "provenance": "CLI dispatch and usage banner (packages/cli/bin/main.js via the substrate-init.js shim, plus lib/setup-plan.js); npm scripts from engine package.json",
       "description": "The real CLI surface. There is no `substrate build`; generation runs through npm scripts in the engine checkout.",
       "binary": "substrate",
       "verbs": [
@@ -1101,7 +1101,9 @@
       "flags": [
         "--all",
         "--apply",
+        "--brand",
         "--catalog",
+        "--component",
         "--dry-run",
         "--engine-artifact",
         "--engine-version",
@@ -1111,6 +1113,7 @@
         "--list",
         "--modified-engine",
         "--output-directory",
+        "--plan",
         "--platform",
         "--refresh",
         "--regenerate-command",
@@ -1121,6 +1124,7 @@
         "--signing-private-key",
         "--signing-public-key",
         "--source-root",
+        "--target",
         "--verify-command",
         "--version"
       ],
@@ -1196,12 +1200,14 @@
       ]
     },
     "cliFlags": {
-      "provenance": "flag spellings in packages/cli/bin/substrate-init.js",
+      "provenance": "flag spellings in packages/cli/bin/main.js and lib/setup-plan.js",
       "description": "CLI flags, so `--flag` spellings in shell/inline code are not mistaken for CSS variables.",
       "exact": [
         "--all",
         "--apply",
+        "--brand",
         "--catalog",
+        "--component",
         "--dry-run",
         "--engine-artifact",
         "--engine-version",
@@ -1211,6 +1217,7 @@
         "--list",
         "--modified-engine",
         "--output-directory",
+        "--plan",
         "--platform",
         "--refresh",
         "--regenerate-command",
@@ -1221,6 +1228,7 @@
         "--signing-private-key",
         "--signing-public-key",
         "--source-root",
+        "--target",
         "--verify-command",
         "--version"
       ]

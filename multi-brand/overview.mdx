@@ -52,7 +52,7 @@ npm run generate
 Narrower runs are available for iteration: `npm run generate:tokens`, `npm run generate:ramps`, `npm run generate:descriptors`, and `npm run generate:doc-views` each handle one artifact family, and most accept a target suffix such as `npm run generate:tokens:css` or `npm run generate:tokens:swift`. Every one has a `:check` variant that verifies the committed output matches what the current configs would produce, which is what CI runs.
 
 <Warning>
-  Substrate has no build verb and no per-brand build flag — you regenerate the corpus, not a single brand. The `substrate` CLI is a separate consumer-side onboarding tool whose verbs are `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact`.
+  Substrate has no build verb and no per-brand build flag — you regenerate the corpus, not a single brand. The `substrate` CLI is a separate consumer-side onboarding tool whose verbs are `init`, `add`, `upgrade`, `adopt`, `setup`, and `artifact` — see [the CLI reference](/tooling/cli).
 </Warning>
 
 ## Per-brand output
