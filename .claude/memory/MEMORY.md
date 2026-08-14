@@ -19,6 +19,12 @@ committed ground-truth manifest extracted from the engine.
   `npm test` (checker + generator tests); `npm run check:partials`.
   Regenerate manifest: run `scripts/generate-manifest.ts` under the engine's
   own tsx **with cwd inside the engine checkout**.
+- Live site (2026-08-13): `https://substrate.docs.unknowncreatives.studio`
+  (custom domain, CNAME → cname.mintlify.builders; pattern is
+  `<product>.docs.unknowncreatives.studio` per product, one Mintlify
+  deployment each; `docs.unknowncreatives.studio` reserved as a future hub).
+  `unknown-creatives.mintlify.app` still serves — poll either after push;
+  deploy = push to main. Root domain is on Framer, untouched.
 
 ## Topics
 
